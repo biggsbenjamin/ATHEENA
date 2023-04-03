@@ -1,0 +1,15 @@
+{
+  "index": 6,
+  "description": "coarse=10, fine=5",
+  "rows": 10,
+  "cols": 10,
+  "channels": 10,
+  "data_width": 16,
+  "binary_point": 8,
+  "valid_burst": 1,
+  "valid_wait": 0,
+  "ready_burst": 10,
+  "ready_wait": 10,
+  "fine": 5,
+  "coarse": 10
+}

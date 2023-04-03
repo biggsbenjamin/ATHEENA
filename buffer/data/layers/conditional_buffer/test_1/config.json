@@ -1,0 +1,23 @@
+{
+    "buffer_depth" : 0,
+    "batch_size": 64,
+    "rows_in": 1,
+    "cols_in": 1,
+    "channels_in": 10,
+    "coarse": 2,
+    "coarse_in": 2,
+    "coarse_out": 2,
+    "ctrledge": 0,
+    "drop_mode": false,
+    "rows_out": 1,
+    "cols_out": 1,
+    "channels_out": 10,
+    "data_t": {
+        "width": 16,
+        "binary_point": 8
+    },
+    "min_delay": 55,
+    "sample_id_width": 16,
+    "stall_delay": 500,
+    "description": "full stall, fill RAM"
+}

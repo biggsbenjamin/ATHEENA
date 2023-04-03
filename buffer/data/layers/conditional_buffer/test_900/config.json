@@ -1,0 +1,21 @@
+{
+    "buffer_depth" : 0,
+    "batch_size": 1024,
+    "rows_in": 1,
+    "cols_in": 1,
+    "channels_in": 10,
+    "coarse": 1,
+    "ctrledge": 0,
+    "drop_mode": false,
+    "rows_out": 1,
+    "cols_out": 1,
+    "channels_out": 10,
+    "data_t": {
+        "width": 16,
+        "binary_point": 8
+    },
+    "min_delay": 3000,
+    "sample_id_width": 16,
+    "stall_delay": 10,
+    "description": "buffer 0, EE, coarse 1, 90rsc, 1024bs"
+}

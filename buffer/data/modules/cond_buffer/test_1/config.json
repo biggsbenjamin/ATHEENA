@@ -1,0 +1,12 @@
+{
+    "rows": 1,
+    "cols": 1,
+    "channels": 50,
+    "batch_size": 50,
+    "min_delay": 200,
+    "drop_mode": true,
+    "data_width": 16,
+    "binary_point": 8,
+    "sample_id_width": 16,
+    "description": "module name: buffer-batch test, layer name: tbd, net name: tbd ADD CONFIGS"
+}

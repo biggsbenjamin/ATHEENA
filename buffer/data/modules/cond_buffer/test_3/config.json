@@ -1,0 +1,13 @@
+{
+    "rows": 1,
+    "cols": 1,
+    "channels": 5,
+    "batch_size": 14,
+    "drop_mode": false,
+    "min_delay": 7,
+    "data_width" : 16,
+    "binary_point" : 8,
+    "sample_id_width": 16,
+    "stall_delay":800,
+    "description": "backpressure test, until ram full"
+}

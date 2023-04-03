@@ -1,0 +1,10 @@
+{
+	"rows": 10,
+	"cols": 10,
+	"channels": 2,
+    "coarse": 0,
+    "fine": 2,
+    "data_width" : 16,
+    "binary_point" : 8,
+    "description": "incorrect coarse"
+}
