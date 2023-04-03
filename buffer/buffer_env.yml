@@ -31,7 +31,6 @@ dependencies:
     - flatbuffers==22.10.26
     - fonttools==4.38.0
     - fpbinary==1.5.3
-    - fpgaconvnet-model==0.1.4.1
     - humanfriendly==10.0
     - idna==3.4
     - joblib==1.2.0
@@ -66,4 +65,3 @@ dependencies:
     - torchvision==0.14.0
     - typing-extensions==4.4.0
     - urllib3==1.26.12
-prefix: /home/localadmin/miniconda3/envs/fcn_chisel_p37
