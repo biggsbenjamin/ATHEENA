@@ -20,7 +20,7 @@ set ip_properties [ list \
 ]
 
 # copy verilog to the ip directory
-file mkdir -force "${output_path}/${name}"
+file mkdir "${output_path}/${name}"
 file copy -force ${v_source} "${output_path}/${name}/${name}.v"
 
 # create the project
