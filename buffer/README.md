@@ -39,16 +39,10 @@ sbt "testOnly fpgaconvnet.layers.Conditional_Buffer_test.*"
 
 ## Verilog Generation
 
-Once the design is verified using chisel's testbench setup, you can the start generating the verilog. This can be done using the `build_verilog.sh` script in the `scripts` folder. This script takes as an input the module to generate as well as the configuration for that module. An example for generating the `Accum` module is as follows:
-
-```
-./scripts/build_verilog.sh accum data/accum/test_0/config.json
-```
-
-The generated verilog appears in the `impl` folder.
+Once the design is verified using chisel's testbench setup, you can the start generating the verilog. This can be done using the `build_verilog.sh` script in the `scripts` folder. This script takes as an input the module to generate as well as the configuration for that module. The generated verilog appears in the `impl` folder.
 
 Further to generating the hardware, you can also checkout the resource usage of the module using the `scripts/get_rsc_usage.tcl` vivado script. An example for the generated `Accum` module is as follows:
 
 ```
-vivado -mode batch -notrace -source scripts/get_rsc_usage.tcl -tclargs AccumFixed
+vivado -mode batch -notrace -source scripts/get_rsc_usage.tcl -tclargs ConditionalBufferFixed
 ```
