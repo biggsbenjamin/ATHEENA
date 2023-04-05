@@ -1,26 +1,18 @@
 import sys
-#import tempfile
 import parser
-import pprint
 import argparse
 
 import json
-from google.protobuf.text_format import MessageToString
-from google.protobuf.json_format import MessageToJson
 from fpgaconvnet_optimiser.tools.layer_enum import LAYER_TYPE
-
-import numpy as np
-import copy
-#import random
-import os
-#import onnx
-#from PIL import Image
-from google.protobuf import json_format
 import fpgaconvnet_optimiser.proto.fpgaconvnet_pb2
 from fpgaconvnet_optimiser.tools.layer_enum \
         import from_proto_layer_type
-#import fpgaconvnet_optimiser.tools.onnx_helper as onnx_helper
-from onnx_data import gen_layer_name, get_layer_from_partition
+
+import copy
+import os
+from google.protobuf import json_format
+#from google.protobuf.text_format import MessageToString
+from google.protobuf.json_format import MessageToJson
 
 sys.path.append(os.environ.get("FPGACONVNET_OPTIMISER"))
 sys.path.append(os.environ.get("FPGACONVNET_HLS"))
@@ -118,9 +110,12 @@ def exit_fusion(args,ee1,eef):
         # add layer into merge_out
         out0.layers.append(eef_lyr)
 
-    # saving to specified output name, TODO save somewhere more consistent
-    filepath = "./" #here? for now...
-    with open(os.path.join(filepath,f"{args.output_name}.json"),"w") as f:
+    # saving to specified output name @ output path
+    if not os.path.exists(args.output_path):
+        os.makedirs(args.output_path)
+        print("Output Path does not exist. Generating...")
+
+    with open(os.path.join(args.output_path,f"{args.output_name}.json"),"w") as f:
         f.write(MessageToJson(merge_out,preserving_proto_field_name=True))
     print(f"JSON merge completed. Saved to {args.output_name}.json")
     return
@@ -128,14 +123,16 @@ def exit_fusion(args,ee1,eef):
 if __name__ == "__main__":
     #NOTE arguments returned are delineated by spaces, newline
     parser = argparse.ArgumentParser(
-            description="Script for merging ee json files. TODO migrate to optimiser")
+            description="Script for merging ee json files.")
 
     # TODO make this compatitble with multiple exit stages
     parser.add_argument('-p1', '--json_path1', metavar='PATH', required=True,
             help='Path to network ee1 json file (.json)')
     parser.add_argument('-pf', '--json_pathf', metavar='PATH', required=True,
             help='Path to network eef json file (.json)')
-    parser.add_argument("-o","--output_name", type=str, required=True,
+    parser.add_argument('-op','--output_path', metavar='PATH', required=True,
+            help='Path to output directory')
+    parser.add_argument("-on","--output_name", type=str, required=True,
             help="intended output name (minus .json)")
 
     # parse arguments
