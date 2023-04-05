@@ -1,6 +1,4 @@
-![build](https://github.com/AlexMontgomerie/fpgaconvnet-chisel/actions/workflows/integration-testing.yml/badge.svg)
-
-# fpgaConvNet Chisel
+# Conditional Buffer (written in Chisel)
 
 This repo contains an implementation of a backend for fpgaConvNet using [Chisel](https://github.com/chipsalliance/chisel3).
 
@@ -9,8 +7,6 @@ This repo contains an implementation of a backend for fpgaConvNet using [Chisel]
 Follow [Chisel's](https://github.com/chipsalliance/chisel3) instructions on setting up the chisel environment.
 
 [Scala 2.12.13](https://www.scala-lang.org/download/2.12.13.html) is required. You may want to install using the [Coursier](https://docs.scala-lang.org/getting-started/index.html#using-the-scala-installer-recommended-way) tool.
-
-You will also need to setup fpgaConvNet for testing purposes. Instructions can be found [here](https://github.com/AlexMontgomerie/fpgaconvnet-optimiser).
 
 Other than that, you will need to install and setup Vivado.
 
@@ -29,30 +25,17 @@ Then the command-line interface for generating hardware can be used.
 ./target/pack/bin/elaborate <partition,layer,module> <hardware type> <configuration file path> --target-dir <output path>
 ```
 
-## Testing
+## Buffer Generation
 
-Test cases are generated from configuration files found in `data`. Please look at this folder for examples of creating new configurations.
+The current buffer generation is controlled by the `gen_buff.sh` script. Activate the buffer env and run the script to generate a large buffer using the example configurations.
+Further example buffer generation configurations files can be found in `data`. Please look at this folder for examples of creating new configurations.
 To generate test data, you can run:
 
-```
-python scripts/generate_module_data.py -m (module name) -n (test case)
-```
-
-You can run all tests using:
+To test individual configurations, you can run:
 
 ```
-sbt test
+sbt "testOnly fpgaconvnet.layers.Conditional_Buffer_test.*"
 ```
-
-To test individual modules, you can run:
-
-```
-sbt "testOnly fpgaconvnet.modules.(module_name)_test.*"
-```
-
-## Debugging
-
-Alongside testing, debugging can be a useful step in resolving problems with the hardware. My prefered method is to use a waveform viewer such as [gtkwave](http://gtkwave.sourceforge.net/). The waveforms can be found in the `test_run_dir` directory.
 
 ## Verilog Generation
 
@@ -69,12 +52,3 @@ Further to generating the hardware, you can also checkout the resource usage of 
 ```
 vivado -mode batch -notrace -source scripts/get_rsc_usage.tcl -tclargs AccumFixed
 ```
-## Simulation Latency
-
-It is important that the hardware generated meets the performance requirements specified by the hardware models in the optimiser. To check that the latency in clock cycles for the simulation results, you can use the following script:
-
-```
-python scripts/get_clock_cycle.py
-```
-
-This script produces a table of all the test runs, and how many clock cycles they took. You can compare this to the latency of the models, found in the `reports` folder.
