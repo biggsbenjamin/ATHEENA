@@ -27,91 +27,13 @@ import matplotlib.lines as mlines
 import matplotlib.patches as mpat
 import json
 
-#def parser_expr(filepath):
-#    #attempt to parse the graph and see what errors
-#    print("Parser experiments")
-#
-#    model, submodels, graph, ctrledges = \
-#        parser.parse_net(filepath, view=False) #check what view does
-#
-#    print(graph.nodes)
-#    print(graph.edges)
-#
-#    for node in graph.nodes:
-#        #print(graph.nodes[node]['hw'])
-#        if graph.nodes[node]['type'] == LAYER_TYPE.Greater:
-#            #seeing if I can find the threshold...
-#            vi = onnx_helper.get_model_value_info(model, node, submodels)
-#            print(vi)
-#
-#        if graph.nodes[node]['type'] == LAYER_TYPE.Convolution:
-#            print("name:", node)
-#            #print("w:", graph.nodes[node]['inputs']['weights'])
-#            #print("b:", graph.nodes[node]['inputs']['bias'])
-#            print(graph.nodes[node]['inputs'])
-#
-#    for node in model.graph.node:
-#        #looking for constant feeding into greater
-#        op = parser._layer_type(node.op_type)
-#        if op != LAYER_TYPE.Greater:
-#            continue
-#        for input_node in node.input:
-#            input_details = onnx_helper.get_model_input(model,input_node)
-#            print("INPUT DEETS:", input_details) #outputs type info - only if input
-#            print("RAW NODE:", input_node) #just outputs the name/number
-#
-#def vis_expr(filepath):
-#    print("Visualiser experiments")
-#
-#    #taking filepath as model_path
-#    name = 'branchynet' #taking name as branchynet
-#    #leave the rest of the networks as default
-#
-#    test_net = Network(name, filepath) #rest as defaults
-#
-#    timestamp = dt.now().strftime("%Y-%m-%d_%H%M%S")
-#    test_outpath = "/home/localadmin/phd/opt-vis-outputs/test_out-sftmxCmp"
-#    test_outpath += "-" + timestamp + ".png"
-#    test_net.visualise(test_outpath)
-#
-#def output_network(args,filepath, is_branchy):
-#    #save the json files
-#    print("outputing experiments for backend")
-#
-#    # create a new network
-#    if is_branchy and args.save_name is None:
-#        net = Network("branchynet", filepath)
-#    else:
-#        net = Network(args.save_name, filepath)
-#
-#    # load from json format
-#    #net.load_network(".json") #for loading previous network config
-#    net.batch_size = 4 #256
-#    net.update_platform("/home/localadmin/phd/fpgaconvnet-optimiser/examples/platforms/zc706.json")
-#    # update partitions
-#    net.update_partitions()
-#    # create report
-#    #net.create_report("report.json") # for resrc usage
-#
-#    #timestamp = dt.now().strftime("%Y-%m-%d_%H%M%S")
-#    print("Saving Network")
-#    net.save_all_partitions("tmp") # NOTE saves as one partition
-#    #net.get_schedule_csv("scheduler.csv") #for scheduler for running on board
-#    print("#################### Finished saving full network #######################")
-#
-#    if is_branchy:
-#        # split into partitions for timing
-#        # NOTE partitions are incomplete but are correct otherwise
-#        print("Saving branchynet FOR PROFILING LATENCY")
-#        net.save_partition_subgraphs("tmp", partition_index=0)
-
-
 ###########################################################
 ####################### optimiser expr ####################
 ###########################################################
 
 def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
     #opt_path is path of optimiser example config .yml file
+
     if not os.path.exists(args.output_path):
         os.makedirs(args.output_path)
         print("gen op path")
@@ -139,8 +61,8 @@ def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
     net.objective  = 1 #NOTE throughput objective (default is latency)
     print("generated simulated annealing object")
 
-    #updating params TODO make batch size an argument
-    net.batch_size = 1024#4
+    #updating params
+    net.batch_size = args.batch_size
     net.update_platform(plat_path)
     # update partitions
     net.update_partitions()
@@ -178,33 +100,34 @@ def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
         net.name = old_name
 
     auto_flag=True #carry out lots of runs at different rsc if true
-    if not auto_flag: #one run on partitions at optimiser_example specified rsc usage
-        net.rsc_allocation = 0.75 #forcing low rsc usage for debug
-        print(f"Attempting optim @ rsc:{net.rsc_allocation}")
-        net.run_optimiser()
-        print("Optimiser done, attempting partition update")
-        net.update_partitions()
-        print("Update done, attempting results saving")
+    #if not auto_flag: #one run on partitions at optimiser_example specified rsc usage
+    #    net.rsc_allocation = 0.75 #forcing low rsc usage for debug
+    #    print(f"Attempting optim @ rsc:{net.rsc_allocation}")
+    #    net.run_optimiser()
+    #    print("Optimiser done, attempting partition update")
+    #    net.update_partitions()
+    #    print("Update done, attempting results saving")
 
-        #create folder to store results - percentage/iteration
-        post_optim_path = os.path.join(args.output_path,
-                "post_optim-rsc{}p".format(int(net.rsc_allocation*100)))
-        if not os.path.exists(post_optim_path):
-            os.makedirs(post_optim_path)
-        # save all partitions
-        net.save_all_partitions(post_optim_path)
-        print("Partitions saved")
-        # create report
-        net.create_report(os.path.join(post_optim_path,
-            "report_{}.json".format(net.name)))
-        # visualise network
-        #net.visualise(os.path.join(post_optim_path,"topology.png"))
+    #    #create folder to store results - percentage/iteration
+    #    post_optim_path = os.path.join(args.output_path,
+    #            "post_optim-rsc{}p".format(int(net.rsc_allocation*100)))
+    #    if not os.path.exists(post_optim_path):
+    #        os.makedirs(post_optim_path)
+    #    # save all partitions
+    #    net.save_all_partitions(post_optim_path)
+    #    print("Partitions saved")
+    #    # create report
+    #    net.create_report(os.path.join(post_optim_path,
+    #        "report_{}.json".format(net.name)))
+    #    # visualise network
+    #    #net.visualise(os.path.join(post_optim_path,"topology.png"))
 
     ### FOR LOOP FOR REPEATED OPTIMISATION ###
     #NOTE expose these to the expr top level
     #rsc_limits = [0.1,0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     rsc_limits = [0.1,0.2,0.3,0.4,0.5,0.6]
     full_sa_runs = 10
+    print(f"Using Resource limits:{} for {} runs each.".format(rsc_limits,full_sa_runs))
 
     if auto_flag:
         if is_branchy:
@@ -437,7 +360,7 @@ def _gen_graph(args,ee_flag,baseline_flag,rsc_str,
             title='Exit resource throughput plot {}\n({})'.format(subtitle_str,args.save_name))
     ax.legend(loc='best')
     ax.grid()
-    plt.xlim(0.05,0.95)
+    plt.xlim(0.05,1.0)
     #save plot
     if args.save_name is not None:
         fig.savefig(os.path.join(args.output_path,"plot_{}_{}.pdf".format(args.save_name,rsc_str)))
@@ -541,7 +464,12 @@ def gen_graph(args):
                 f.write("report name:"+rn+"\n")
                 f.write("xy:"+str(rsc_thr)+"\n")
         #generate separate plots for EEF fraction
-        eef_exit_fraction_l = [0.25,0.34, 0.37,0.5]
+        #NOTE GENERATING SINGLE PLOTS
+        #eef_exit_fraction_l = [0.25,0.34, 0.37,0.5]
+        eef_exit_fraction_l = []
+        # FIXME only for 2 stage networks
+        eef_exit_fraction_l.append(1.0-float(args.profiled_probability))
+
         subop_fraction = [-0.05,0.05] #lines representing suboptimal EEF %
         for eef_frac in eef_exit_fraction_l:
             if ee_flag:
@@ -598,7 +526,7 @@ def gen_graph(args):
                 #        f.write("xy:"+str(rsc_thr)+"\n")
 
                 #comb_rn = comb_rn.T
-                with open(os.path.join(args.output_path,'combined_rpt_eefrac{}.txt'.format(int(eef_frac*100))), 'w') as f:
+                with open(os.path.join(args.output_path,'combined_rpt_eefrac{}.txt'.format(int((1-eef_frac)*100))), 'w') as f:
                     f.write("###### COMBINED REPORT NAMES #####\n")
                     for rn,rsc_thr in zip(comb_rn, comb_xy):
                         f.write(f"report name:{rn} \n")
@@ -617,16 +545,16 @@ def gen_graph(args):
 
                 #save to csv for latex pgfplots
                 np.savetxt(os.path.join(args.output_path,
-                            'Opt_{}_curve.csv'.format(str(int(100*eef_frac))) ),
+                            'Opt_{}_curve.csv'.format(str(int(100*(1-eef_frac) ))) ),
                         comb_xy,delimiter=',')
 
                 np.savetxt(os.path.join(args.output_path,
-                            'INVESTIGATION_Opt_{}_curve.csv'.format(str(int(100*eef_frac))) ),
+                            'INVESTIGATION_Opt_{}_curve.csv'.format(str(int(100*(1-eef_frac) ))) ),
                         comb_all,delimiter=',')
 
                 #plot the pareto front with a line
                 comb_col = "#9a57FF"
-                ax.plot(comb_x,comb_y,c=comb_col,label='Opt ({:.1f}%)'.format(100*eef_frac))
+                ax.plot(comb_x,comb_y,c=comb_col,label='Opt ({:.1f}%)'.format(100*(1-eef_frac) ))
                 #plot the points and limiting resource for combined exits
                 for rsc,mrkr in rsc_markers.items():
                     mask = pareto_comb_mask & (combined_data["limiting_resource"]==rsc)
@@ -635,7 +563,7 @@ def gen_graph(args):
                     rsc_y=combined_data["throughput"][mask]
                     rsc_xy=np.vstack((rsc_x,rsc_y)).T
                     np.savetxt(os.path.join(args.output_path,
-                                'Opt_{}_{}.csv'.format(str(int(100*eef_frac)),rsc )),
+                                'Opt_{}_{}.csv'.format(str(int(100*(1-eef_frac) )),rsc )),
                             rsc_xy,delimiter=',')
                     #matplotlibbing
                     ax.scatter(rsc_x, rsc_y,c=comb_col,marker=mrkr)#,label=f'{rsc}s')
@@ -649,19 +577,17 @@ def gen_graph(args):
                     #save to csv for latex pgfplots
                     np.savetxt(os.path.join(args.output_path,
                                 'Opt_{}_bound_{}.csv'.format(
-                                    str(int(100*eef_frac)),
-                                    str(int(100*(eef_frac+subop_frac)))) ),
+                                    str(int(100*(1-eef_frac))),
+                                    str(int(100*((1-(eef_frac+subop_frac) ) )))) ),
                             bound_xy,delimiter=',')
                     #plot the pareto front with a line
                     ax.plot(comb_x,bounded_thru, c=comb_col, linestyle=ls,
-                            label='{:.1f}%'.format(100*(eef_frac+subop_frac)) ) #change the names
+                            label='{:.1f}%'.format(100*((1-(eef_frac+subop_frac)) )) ) #change the names
                     #don't worry about the limiting resource fo the suboptimal plot
 
             #fix the title of the plot
             ax.set( xlabel='Fraction of Maximum Limiting Resource', #.format(rsc_str),
                     ylabel='Throughput (samples/s)',
-                    #title='Resource Fraction vs Throughput\nEarly-Exit Samples: {}%'.format(
-                    #    str(100*(1-eef_frac))))#,args.save_name)
                     )
             ax.grid()
             ax.set_xlim(right=1.0)
@@ -685,9 +611,9 @@ def gen_graph(args):
                 labels.append(f'{rsc}s')
             ax.legend(handles,labels, loc='center left', bbox_to_anchor=(1.01, 0.5))
             #save plot
-            fig.savefig(os.path.join(args.output_path,"plot_{}_{}_{}eefp.pdf".format(
-                args.save_name, rsc_str, str(int(100*eef_frac)))))
-            print("Saved Combined {} Graph. EEF Frac: {}".format(rsc_str,str(100*eef_frac)))
+            fig.savefig(os.path.join(args.output_path,"plot_{}_{}_{}eepr.pdf".format(
+                args.save_name, rsc_str, str(int(100*(1-eef_frac) )))))
+            print("Saved Combined {} Graph. EE Frac: {}".format(rsc_str,str(100*(1-eef_frac) )))
 
 ###########################################################
 #################        main         #####################
@@ -699,58 +625,43 @@ def main():
             choices=['opt_brn','opt', 'gen_graph'],
             help='for experiments')
 
-    parser.add_argument('--save_name', type=str, help='save name for json file')
+    parser.add_argument('--save_name', type=str, help='save name for json file or graph')
 
     parser.add_argument('-o','--output_path', metavar='PATH', required=True,
             help='Path to output directory')
 
+    # NOTE added for cli control
+    parser.add_argument('-mp', '--model_path', metavar='PATH',
+            help='location of onnx model')
+    parser.add_argument('-pp','--platform_path', metavar='PATH',
+            help='location of platform description path')
+    parser.add_argument('--optimiser_path', metavar='PATH',
+            help='location of optimiser configuration path')
+    parser.add_argument('-bs','--batch_size', metavar='N',type=int, default=1, required=False,
+                    help='batch size for hardware optimisation')
+
+    ### NOTE inputs for graph generation
     parser.add_argument('-i', '--input_path', metavar='PATH',
             help='folder location for report JSONs')
     parser.add_argument('-bi', '--baseline_input_path', metavar='PATH',
             help='folder location for baseline report JSONs')
-
-    #parser.add_argument('--objective', choices=['throughput','latency'], required=True,
-    #            help='Optimiser objective')
-    #parser.add_argument('--optimiser', choices=['simulated_annealing', 'improve', 'greedy_partition'],
-    #            default='improve', help='Optimiser strategy')
-    #parser.add_argument('--optimiser_config_path', metavar='PATH', required=True,
-    #        help='Configuration file (.yml) for optimiser')
+    parser.add_argument('-pr','--profiled_probability', type=float, default=0.5, required=False,
+            help='Probability of samples that will early-exit. E.g. 0.75 means 75% of values will early-exit')
 
     args = parser.parse_args()
 
-    #brn se - less layers to simplify debug, fc has bias, 2 conv, 3 fc only
-    #filepath = "/home/localadmin/phd/fpgaconvnet-optimiser/examples/models/brn_se_SMOL.onnx"
+    #model path
+    filepath = args.model_path
 
-    # se lenet (backbone only version of brn se, the new one)
-    #filepath = "/home/localadmin/phd/fpgaconvnet-optimiser/examples/models/backbone_se_new.onnx"
-    # branchy se lenet (the new version, 3 conv + FC in bb and 1xtra conv+FC in ee)
-    filepath = "/home/localadmin/phd/fpgaconvnet-optimiser/examples/models/brn_se20220902.onnx"
-
-    # branchy alex net - cifar 10
-    #filepath = "/home/localadmin/phd/fpgaconvnet-optimiser/examples/models/b-alexnet_221214.onnx"
-    #filepath = "/home/localadmin/phd/fpgaconvnet-optimiser/examples/models/b-alexnet_ppr-ver_230109.onnx"
-    # triplewins small cnn
-    #filepath = "/home/localadmin/phd/fpgaconvnet-optimiser/examples/models/TW_SmallCNN_230103.onnx"
-
-    #optimiser path - taken from opt example
-    optpath = "/home/localadmin/phd/fpgaconvnet-optimiser/examples/optimiser_example.yml"
+    #optimiser path
+    optpath = args.optimiser_path
 
     #platform path
-    platpath = "/home/localadmin/phd/fpgaconvnet-optimiser/examples/platforms/zc706.json"
-    #platpath = "/home/localadmin/phd/fpgaconvnet-optimiser/examples/platforms/vu440.json"
+    platpath = args.platform_path
 
-    #if args.expr == 'parser':
-    #    parser_expr(filepath)
-    #elif args.expr == 'vis':
-    #    vis_expr(filepath)
-    #elif args.expr == 'out':
-    #    output_network(filepath, False, args.save_name)
-    #elif args.expr == 'out_brn':
-    #    if args.save_name is not None:
-    #        output_network(filepath, True, args.save_name)
-    #    else:
-    #        output_network(filepath, True)
     if args.expr == 'opt_brn':
+        if filepath is None or optpath is None or platpath is None:
+            raise ValueError("Missing model path, optimiser config path or platform resource path")
         print(filepath)
         print(platpath)
         optim_expr(args, filepath, True, optpath, platpath)

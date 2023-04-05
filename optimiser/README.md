@@ -4,39 +4,67 @@ This repo contains code for optimising the mapping a Early-Exit Convolutional Ne
 
 ## Setup
 
-The following programs are required for the optimiser:
+The optimiser (and HLS generation) has been verified using the following software:
 
 - `python=3.7`
+- `miniconda=4.10.1`
 
 To install this package, run from this directory the following:
 
 ```
 sudo apt install protobuf-compiler libprotoc-dev
-conda env create  -f atheena_opt_hls_p37.yml
-conda activate ahteena_opt_hls_p37
-python -m pip install atheena_setup.py
+cd ./optimiser/
+conda env create -f atheena_opt_hls_p37.yml
+conda activate atheena_opt_hls_p37
+python atheena_setup.py install 
 ```
 
 ## Optimiser Framework
 
-The main tool is the optimisation script which generates an optimised hardware topology for a given model and platform. There are several components needed for this: a model of the hardware, transforms that map the model to the hardware and an optimisation scheme that chooses the best mapping. These will be outlined later.
-To use the optimiser, an example of running it using the `run_optimiser.py` script for VGG16 is as follows:
+The main tool is the optimisation script which generates an optimised hardware topology for a given model and platform. There are several components needed for this: a model of the hardware, transforms that map the model to the hardware and an optimisation scheme that chooses the best mapping.
 
 ```Shell
-python -m fpgaconvnet_optimiser --name vgg16 \
-    --model_path examples/models/vgg16.onnx \
+python -m fpgaconvnet_optimiser.tools.dev_script \
+    --expr opt_brn \
+    --save_name branchy_lenet \
+    -o outputs/branchy_lenet \
+    --model_path examples/models/atheena/branchy_lenet_20220902.onnx \
     --platform_path examples/platforms/zc706.json \
-    --output_path outputs/vgg16 \
-    --batch_size 256 \
-    --objective throughput \
-    --optimiser simulated_annealing \
-    --optimiser_config_path examples/optimiser_example.yml
+    --optimiser_path examples/optimiser_example.yml \
+    -bs 1024
 ```
 
-This will generate the following files:
+This will generate the following a series of json files describing the stages of the early-exit network under different resource utilisation contraints.
 
-- `(output_path)/(name).prototxt`: Hardware topology description for backend
-- `(output_path)/report.json`: A report file containing estimations of usage and performance
+- `(output_path)/post_optim-rsc(P)p/report_(save_name)-ee(stage)-rsc(P)p-iter(I).json`: A report file containing estimations of usage and performance at `(P)` percent of the boards available resources, for `(stage)` of the network, for the `(I)th` iteration of the optimiser..
+- `(output_path)/post_optim-rsc[P]p/(save_name)-ee(stage)-rsc(P)p-iter(I).json`: A hardware specification file containing estimations of usage and performance at `[P]` percent of the boards available resources, for `(stage)` of the network, for the `(I)th` iteration of the optimiser.
+
+```Shell
+python -m fpgaconvnet_optimiser.tools.dev_script \
+    --expr gen_graph \
+    --save_name branchy_lenet_graph \
+    -o outputs/branchy_lenet/results/ \
+    -i outputs/branchy_lenet/
+    --profiled_probability 0.75 
+```
+
+Running the `gen_graph` experiment will generate a pareto front for the optimised combination of the networks as well as a list of the reports for each of the network stages so that the user can choose pairs of network stages on the pareto front.
+
+- `(output_path)/combined_rpt_eefrac(PR).txt`: lists the pareto front combinations of network stages and their expected throughput and resource usage.
+
+Note: for a graph containing baseline results, specify the path using `-bi`.
+
+```Shell
+python -m fpgaconvnet_optimiser.tools.ee_stage_merger \
+    -p1 outputs/branchy_lenet/post_optim-rsc30p/branchy_lenet-ee1-rsc30p-iter0.json
+    -pf outputs/branchy_lenet/post_optim-rsc40p/branchy_lenet-eef-rsc40p-iter0.json
+    -on branchy_lenet_merged \
+    -op outputs/branchy_lenet/
+```
+
+- `(output_path)/branchy_lenet_merged.json`: the final hardware specification ready to be implemented using the HLS backend.
+
+## Additional Information
 
 ### Modelling
 
