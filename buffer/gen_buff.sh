@@ -1,6 +1,18 @@
 #!/bin/bash
 
-test_rsc=95
+list="30 40 50 60 70 80 90 95"
+echo "Specify resource limit to generate: 30,40,50,60,70,80,90,95?"
+read test_rsc
+
+if [[ $list =~ (^|[[:space:]])$test_rsc($|[[:space:]]) ]]
+    then
+        echo "Valid rsc"
+    else
+        echo "Invalid rsc"
+        exit
+fi
+
+#test_rsc=95
 
 mkdir ./impl/CONF_ee_${test_rsc}rsc-buffers/
 mkdir ./impl/CONF_ee_${test_rsc}rsc-buffers/buffer0/

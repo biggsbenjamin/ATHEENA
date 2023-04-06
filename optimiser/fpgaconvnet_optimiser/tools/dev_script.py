@@ -127,7 +127,7 @@ def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
     #rsc_limits = [0.1,0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     rsc_limits = [0.1,0.2,0.3,0.4,0.5,0.6]
     full_sa_runs = 10
-    print(f"Using Resource limits:{} for {} runs each.".format(rsc_limits,full_sa_runs))
+    print("Using Resource limits:{} for {} runs each.".format(rsc_limits,full_sa_runs))
 
     if auto_flag:
         if is_branchy:

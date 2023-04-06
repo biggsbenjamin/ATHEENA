@@ -141,7 +141,7 @@ abstract class ConditionalBufferBaseTest extends BaseTest[ConditionalBufferConfi
   val test_path = "data/layers/conditional_buffer"
 
   // test parameters
-  val basic_test_indices = List(0)
+  val basic_test_indices = List(0,1,2,3)
   val back_pressure_burst = 8
   val back_pressure_wait = 16
   val slow_burst = 8

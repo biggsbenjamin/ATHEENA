@@ -383,3 +383,6 @@ data/partitions
 data/partitions_dct
 
 **/__pycache__/
+
+# coursier tool install folder (just in case)
+cs/*

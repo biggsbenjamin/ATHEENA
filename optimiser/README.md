@@ -44,7 +44,7 @@ python -m fpgaconvnet_optimiser.tools.dev_script \
     --expr gen_graph \
     --save_name branchy_lenet_graph \
     -o outputs/branchy_lenet/results/ \
-    -i outputs/branchy_lenet/
+    -i outputs/branchy_lenet/ \
     --profiled_probability 0.75 
 ```
 
@@ -56,8 +56,8 @@ Note: for a graph containing baseline results, specify the path using `-bi`.
 
 ```Shell
 python -m fpgaconvnet_optimiser.tools.ee_stage_merger \
-    -p1 outputs/branchy_lenet/post_optim-rsc30p/branchy_lenet-ee1-rsc30p-iter0.json
-    -pf outputs/branchy_lenet/post_optim-rsc40p/branchy_lenet-eef-rsc40p-iter0.json
+    -p1 outputs/branchy_lenet/post_optim-rsc30p/branchy_lenet-ee1-rsc30p-iter0.json \
+    -pf outputs/branchy_lenet/post_optim-rsc40p/branchy_lenet-eef-rsc40p-iter0.json \
     -on branchy_lenet_merged \
     -op outputs/branchy_lenet/
 ```
