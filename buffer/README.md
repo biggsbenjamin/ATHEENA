@@ -54,8 +54,10 @@ For example:
 ## Buffer Generation
 
 The current buffer generation is simplified by the `./gen_buff.sh` script. 
+1. Specify the buffer size requirements based on the reported combined usage from the optimiser.
+> **Note**: Specify `95` for the largest buffer for batch size 1024.
 
-Activate the ATHEENA optimiser environment and run the script to generate a buffer using the example configurations based on the resource point. 
+2. Activate the ATHEENA optimiser environment and run the script to generate a buffer using the example configurations based on the resource point. 
 
 Be sure to run this *before* HLS backend is run.
 
