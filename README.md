@@ -105,13 +105,110 @@ Finally, there is a known [bug](http://svn.clifford.at/handicraft/2017/vivadobug
 
 ## Generating the Artifacts
 
-To generate an optimised FPGA accelerator description for an Early-Exit network, follow the instructions in `optimiser/README.md`.
+To generate an optimised FPGA accelerator description for an Early-Exit network, follow the instructions in `optimiser/README.md`:
 
-To generate the hardware corresponding to the accelerator description, copy the resulting `.json` file into `./hls/test/partitions/(new_folder)` and follow the HLS instructions.
+### Optimiser instructions (after setup)
+
+1. Run optimiser on the branchy LeNet network description.
+
+```Shell
+cd ./optimiser/
+```
+```Shell
+python -m fpgaconvnet_optimiser.tools.dev_script \
+    --expr opt_brn \
+    --save_name branchy_lenet \
+    -o outputs/branchy_lenet \
+    --model_path examples/models/atheena/branchy_lenet_20220902.onnx \
+    --platform_path examples/platforms/zc706.json \
+    --optimiser_path examples/optimiser_example.yml \
+    -bs 1024
+```
+
+2. Generate the pareto graph for the optimiser results at an early-exit probability of 75% (as in the paper).
+
+```Shell
+python -m fpgaconvnet_optimiser.tools.dev_script \
+    --expr gen_graph \
+    --save_name branchy_lenet_graph \
+    -o outputs/branchy_lenet/results/ \
+    -i outputs/branchy_lenet/ \
+    --profiled_probability 0.75 
+```
+3. Run the following command to perform a stage merge for all the results in the combined report.
+
+```Shell
+python -m fpgaconvnet_optimiser.tools.ee_stage_merger \
+    -c outputs/branchy_lenet/results/combined_rpt_eefrac75.txt \
+    -j outputs/branchy_lenet/ \
+    -on branchy_lenet_merged \
+    --output_path outputs/branchy_lenet/merged/
+```
+
+4. Copy this `.json` file into a folder in `hls/test/partitions/(example)/`.
+
+For example: 
+```Shell
+mkdir -p ../hls/test/partitions/branchy_lenet_eg
+```
+```Shell
+cp outputs/branchy_lenet/merged/branchy_lenet_merged_rsc80_thru95000.json ../hls/test/partitions/branchy_lenet_eg/
+```
+
+> **Note**: Due to the non-deterministic nature of the optimiser, the above file will have slightly different resource usage and throughput. For the A1-like design use an rsc**30-35** and thru**~19500**. For A2-like, use rsc**45-50** and thru**~45000**. For A3-like design, use rsc**80-90** and thru**95000**.
+
+### Buffer instructions (after setup)
+
+5. Run the following instructions to generate available hardware IP for the buffer layer at different resource allocations.
+
+```Shell
+cd ../buffer/
+```
+```Shell
+./gen_buff.sh
+```
+
+6. Respond to the prompt with `a`, to generate all the configurations.
+
+### HLS Instructions (after setup)
+
+7. Run the following instructions to start the HLS generation process for the layers based on the hardware description provided. 
+
+```Shell
+cd ../hls/test/partitions/
+```
+```Shell
+../../scripts/split_run.sh -a \
+    -n branchy_lenet_eg \
+    -m $FPGACONVNET_OPTIMISER/examples/models/atheena/branchy_lenet_20220902.onnx \
+    -p branchy_lenet_eg/branchy_lenet_merged_rsc80_thru95000.json \
+    -v
+```
+
+> **Note**: The `-a` is used to generate all the network layers, the top layer, and the host code. The `-v` flag is used to stitch the resulting network IP layers into a full board design and then run Vivado synthesis and implementation before finally generating the bitstream. The script can be run with or without these flags if only one operation is required.
+
+8. The final step requires some manual integration with the Vivado SDK and assumes that the target board is the ZC706 (used in the paper).
+    a. Open the resulting `project_1` in `test/partitions/branchy_lenet_eg/partition_0/branchy_lenet_eg_hw_prj`
+
+    b. Export the hardware + bitstream: `File > Export > Export Hardware`. Check `include bitstream`.
+
+    c. Launch the SDK: `File > Launch SDK`
+
+    d. Generate the FSBL: `File > New > Application Project`. Provide a project name and select the exported hw platform 0. Hit `Next` and select `Zynq FSBL` and hit `Finish`.
+
+    e. Generate the host code: `File > New > Application Project`. Provide a project name and select the exported hw platform 0. Hit `Next` and select `Hello world` and hit `Finish`.
+
+    f. In this project, open `hello_world.c` and replace the contents with  `branchy_lenet_eg_host_code.c`
+
+    g. Add the xilffs support to the host code (hello world) BSP using `system.mss > modify bsp`
+
+    h. Insert SD card loaded with `./hls/test/data/pc75/I0.BIN`
+
+    i. Run the FSBL project on the board, upload the bitstream and then run the host code (hello world) project!
 
 ### Included Artifacts
 
-The ATHEENA designs from the paper have been included in this repository.
+As the HLS generation and Vivado Synthesis take a significant amount of time to run, I have included three ATHEENA hardware projects and designs from the paper have been included in this repository.
 
 A1 : `./hls/test/partitions/design_A1/`
 A2 : `./hls/test/partitions/design_A2/`
