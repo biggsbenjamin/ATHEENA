@@ -517,17 +517,17 @@ proc impl_split_hardware {pth proj} {
     add_files -norecurse \
         $pth/$proj/project_1/project_1.srcs/sources_1/bd/design_1/hdl/design_1_wrapper.v
     
-    #####RUN SYNTH AND IMPL - without all the reseting stuff, defaults to .xci repr for imported IP
-    ####launch_runs impl_1 -to_step write_bitstream -jobs 16
-    ####if {[version_checker 2021.2]} {
-    ####    wait_on_runs impl_1
-    ####} else {
-    ####    wait_on_run impl_1
-    ####}
-    ####
-    ##### EXPORTING HW + bitstream
-    ####file mkdir $pth/$proj/project_1/project_1.sdk
-    ####file copy -force \
-    ####    $pth/$proj/project_1/project_1.runs/impl_1/design_1_wrapper.sysdef \
-    ####    $pth/$proj/project_1/project_1.sdk/design_1_wrapper.hdf
+    #RUN SYNTH AND IMPL - without all the reseting stuff, defaults to .xci repr for imported IP
+    launch_runs impl_1 -to_step write_bitstream -jobs 16
+    if {[version_checker 2021.2]} {
+        wait_on_runs impl_1
+    } else {
+        wait_on_run impl_1
+    }
+    
+    # EXPORTING HW + bitstream
+    file mkdir $pth/$proj/project_1/project_1.sdk
+    file copy -force \
+        $pth/$proj/project_1/project_1.runs/impl_1/design_1_wrapper.sysdef \
+        $pth/$proj/project_1/project_1.sdk/design_1_wrapper.hdf
 }

@@ -1,0 +1,247 @@
+{
+  "name": "NEWbrn_se_221206-ee1-rsc30p-iter9",
+  "date_created": "2022-12-06 13:57:04.996267",
+  "total_iterations": 0,
+  "platform": {
+    "name": "platform",
+    "freq": 125,
+    "reconf_time": 0.08255,
+    "wr_time": 0.0,
+    "ports": 2,
+    "port_width": 64,
+    "mem_bandwidth": 16.0,
+    "mem_capacity": 1024000000,
+    "constraints": {
+      "FF": 437200,
+      "LUT": 218600,
+      "DSP": 900,
+      "BRAM": 1090
+    }
+  },
+  "total_operations": 243200,
+  "network": {
+    "memory_usage": 1626112,
+    "performance": {
+      "latency": 0.02097936,
+      "throughput": 48809.87789903982,
+      "performance": 11592346.001021957
+    },
+    "num_partitions": 1,
+    "max_resource_usage": {
+      "LUT": 45459,
+      "FF": 56345,
+      "BRAM": 276,
+      "DSP": 203
+    }
+  },
+  "partitions": {
+    "0": {
+      "partition_index": 0,
+      "batch_size": 1024,
+      "num_layers": 17,
+      "latency": 0.02097936,
+      "throughput": 48809.87789903982,
+      "weights_reloading_factor": 1,
+      "weights_reloading_layer": null,
+      "resource_usage": {
+        "LUT": 45459,
+        "FF": 56345,
+        "BRAM": 276,
+        "DSP": 203
+      },
+      "bandwidth": {
+        "in": 0.0765625,
+        "out": 0.0009765625
+      },
+      "layers": {
+        "13": {
+          "type": "LAYER_TYPE.Convolution",
+          "interval": 1296.0,
+          "latency": 1296.0,
+          "resource_usage": {
+            "LUT": 9034,
+            "FF": 10215,
+            "BRAM": 154,
+            "DSP": 125
+          }
+        },
+        "14": {
+          "type": "LAYER_TYPE.Pooling",
+          "interval": 1024.0,
+          "latency": 1024.0,
+          "resource_usage": {
+            "LUT": 4515,
+            "FF": 6535,
+            "BRAM": 15,
+            "DSP": 0
+          }
+        },
+        "15": {
+          "type": "LAYER_TYPE.ReLU",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "16": {
+          "type": "LAYER_TYPE.Convolution",
+          "interval": 2560.0,
+          "latency": 2560.0,
+          "resource_usage": {
+            "LUT": 9463,
+            "FF": 11519,
+            "BRAM": 63,
+            "DSP": 45
+          }
+        },
+        "17": {
+          "type": "LAYER_TYPE.Pooling",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 1806,
+            "FF": 2614,
+            "BRAM": 6,
+            "DSP": 0
+          }
+        },
+        "18": {
+          "type": "LAYER_TYPE.ReLU",
+          "interval": 320.0,
+          "latency": 320.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "2": {
+          "type": "LAYER_TYPE.InnerProduct",
+          "interval": 256.0,
+          "latency": 256.0,
+          "resource_usage": {
+            "LUT": 18643,
+            "FF": 23789,
+            "BRAM": 35,
+            "DSP": 25
+          }
+        },
+        "24": {
+          "type": "LAYER_TYPE.Greater",
+          "interval": 10.0,
+          "latency": 10.0,
+          "resource_usage": {
+            "LUT": 1818,
+            "FF": 1498,
+            "BRAM": 0,
+            "DSP": 8
+          }
+        },
+        "exit": {
+          "type": "LAYER_TYPE.If",
+          "interval": 20.0,
+          "latency": 20.0,
+          "resource_usage": {
+            "LUT": 3,
+            "FF": 5,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "split0": {
+          "type": "LAYER_TYPE.Split",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 8,
+            "FF": 14,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "split1": {
+          "type": "LAYER_TYPE.Split",
+          "interval": 10.0,
+          "latency": 10.0,
+          "resource_usage": {
+            "LUT": 3,
+            "FF": 5,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "buffer0": {
+          "type": "LAYER_TYPE.Buffer",
+          "interval": 10.0,
+          "latency": 10.0,
+          "resource_usage": {
+            "LUT": 53,
+            "FF": 45,
+            "BRAM": 1,
+            "DSP": 0
+          }
+        },
+        "buffer1": {
+          "type": "LAYER_TYPE.Buffer",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 113,
+            "FF": 106,
+            "BRAM": 2,
+            "DSP": 0
+          }
+        },
+        "POOLING14_squeeze_RELU15": {
+          "type": "LAYER_TYPE.Squeeze",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "CONVOLUTION16_squeeze_POOLING17": {
+          "type": "LAYER_TYPE.Squeeze",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "RELU18_squeeze_INNERPRODUCT2": {
+          "type": "LAYER_TYPE.Squeeze",
+          "interval": 320.0,
+          "latency": 320.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "INNERPRODUCT2_squeeze_split1": {
+          "type": "LAYER_TYPE.Squeeze",
+          "interval": 10.0,
+          "latency": 10.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        }
+      }
+    }
+  }
+}

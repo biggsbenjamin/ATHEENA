@@ -8,12 +8,7 @@ GEN_TOP=0
 RUN_VIVADO=0
 GEN_CODE=0
 
-NETWORK=brn_se_test
-MODEL_PATH=$FPGACONVNET_OPTIMISER/examples/models/atheena/branchy_lenet_20220902.onnx
-PARTITION_INFO_PATH=""
-WEIGHTS_PATH=""
-
-while getopts "al:tvcn:m:p:h" opt; do
+while getopts "al:tvch" opt; do
     case ${opt} in
         a ) ALL=1
             GEN_TOP=1
@@ -33,17 +28,8 @@ while getopts "al:tvcn:m:p:h" opt; do
         c ) GEN_CODE=1
             echo "Running host code generation"
             ;;
-        n ) NETWORK=$OPTARG
-            ;;
-        m ) MODEL_PATH=$OPTARG
-            ;;
-        p ) PARTITION_INFO_PATH=$OPTARG
-            ;;
         h )
-            echo "TODO Some useful help thing... [-a (gen all layers+top+host code)]"
-            echo "[-n (network+folder name) ]"
-            echo "[-m (onnx model path) ]"
-            echo "[-p (.json hardware description) ]"
+            echo "TODO Some useful help thing... [-a (gen all layers+top)]"
             echo "[-l "arg1 arg2 arg3..."(partition:arg1, gen specific layer:arg2,3...) ]"
             echo "[-t (generate top)] [-v (run vivado integrator)]"
             echo "[-c (generate host code)]"
@@ -53,18 +39,19 @@ while getopts "al:tvcn:m:p:h" opt; do
 done
 shift $((OPTIND -1))
 
-####################### Initialise variables ##########################
+# Initialise variables
+NETWORK=brn_se_conf
+MODEL_PATH=$FPGACONVNET_OPTIMISER/examples/models/atheena/branchy_lenet_20220902.onnx
+WEIGHTS_PATH=""
+PARTITION_INFO_PATH=brn_se_conf.json
 IMAGE_PATH=$FPGACONVNET_HLS/test/data/IMAGES_ee-pc75_bs1024
+IMAGE_PATH=IMAGES00
 ZYNQ_PART=xc7z045ffg900-2
 ZYNQ_BOARD=xilinx.com:zc706:part0:1.4
-#######################################################################
+#TEST_TYPE=sim
 
 # move into network folder
-cd $NETWORK
-# unite json file name with network
-cp $PARTITION_INFO_PATH ./${NETWORK}.json
-
-PARTITION_INFO_PATH=${NETWORK}.json
+#cd $NETWORK (already in network folder)
 
 FREQ=125
 # WARNING!!! might need to change to 64 so we have similar DMA overhead latency

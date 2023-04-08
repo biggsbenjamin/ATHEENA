@@ -1,0 +1,258 @@
+{
+  "name": "NEWbrn_se_221206-ee1-rsc10p-iter6",
+  "date_created": "2022-12-06 13:34:56.649985",
+  "total_iterations": 0,
+  "platform": {
+    "name": "platform",
+    "freq": 125,
+    "reconf_time": 0.08255,
+    "wr_time": 0.0,
+    "ports": 2,
+    "port_width": 64,
+    "mem_bandwidth": 16.0,
+    "mem_capacity": 1024000000,
+    "constraints": {
+      "FF": 437200,
+      "LUT": 218600,
+      "DSP": 900,
+      "BRAM": 1090
+    }
+  },
+  "total_operations": 243200,
+  "network": {
+    "memory_usage": 1626112,
+    "performance": {
+      "latency": 0.052448632,
+      "throughput": 19523.864797846396,
+      "performance": 4636917.889488519
+    },
+    "num_partitions": 1,
+    "max_resource_usage": {
+      "LUT": 20977,
+      "FF": 25810,
+      "BRAM": 104,
+      "DSP": 55
+    }
+  },
+  "partitions": {
+    "0": {
+      "partition_index": 0,
+      "batch_size": 1024,
+      "num_layers": 18,
+      "latency": 0.052448632,
+      "throughput": 19523.864797846396,
+      "weights_reloading_factor": 1,
+      "weights_reloading_layer": null,
+      "resource_usage": {
+        "LUT": 20977,
+        "FF": 25810,
+        "BRAM": 104,
+        "DSP": 55
+      },
+      "bandwidth": {
+        "in": 0.030625,
+        "out": 0.000390625
+      },
+      "layers": {
+        "13": {
+          "type": "LAYER_TYPE.Convolution",
+          "interval": 5120.0,
+          "latency": 5120.0,
+          "resource_usage": {
+            "LUT": 4389,
+            "FF": 5148,
+            "BRAM": 50,
+            "DSP": 25
+          }
+        },
+        "14": {
+          "type": "LAYER_TYPE.Pooling",
+          "interval": 5120.0,
+          "latency": 5120.0,
+          "resource_usage": {
+            "LUT": 903,
+            "FF": 1307,
+            "BRAM": 3,
+            "DSP": 0
+          }
+        },
+        "15": {
+          "type": "LAYER_TYPE.ReLU",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "16": {
+          "type": "LAYER_TYPE.Convolution",
+          "interval": 6400.0,
+          "latency": 6400.0,
+          "resource_usage": {
+            "LUT": 5489,
+            "FF": 6874,
+            "BRAM": 30,
+            "DSP": 18
+          }
+        },
+        "17": {
+          "type": "LAYER_TYPE.Pooling",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 1806,
+            "FF": 2614,
+            "BRAM": 6,
+            "DSP": 0
+          }
+        },
+        "18": {
+          "type": "LAYER_TYPE.ReLU",
+          "interval": 320.0,
+          "latency": 320.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "2": {
+          "type": "LAYER_TYPE.InnerProduct",
+          "interval": 1600.0,
+          "latency": 1600.0,
+          "resource_usage": {
+            "LUT": 6357,
+            "FF": 8133,
+            "BRAM": 12,
+            "DSP": 4
+          }
+        },
+        "24": {
+          "type": "LAYER_TYPE.Greater",
+          "interval": 10.0,
+          "latency": 10.0,
+          "resource_usage": {
+            "LUT": 1818,
+            "FF": 1498,
+            "BRAM": 0,
+            "DSP": 8
+          }
+        },
+        "exit": {
+          "type": "LAYER_TYPE.If",
+          "interval": 20.0,
+          "latency": 20.0,
+          "resource_usage": {
+            "LUT": 3,
+            "FF": 5,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "split0": {
+          "type": "LAYER_TYPE.Split",
+          "interval": 256.0,
+          "latency": 256.0,
+          "resource_usage": {
+            "LUT": 40,
+            "FF": 70,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "split1": {
+          "type": "LAYER_TYPE.Split",
+          "interval": 5.0,
+          "latency": 5.0,
+          "resource_usage": {
+            "LUT": 6,
+            "FF": 10,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "buffer0": {
+          "type": "LAYER_TYPE.Buffer",
+          "interval": 10.0,
+          "latency": 10.0,
+          "resource_usage": {
+            "LUT": 53,
+            "FF": 45,
+            "BRAM": 1,
+            "DSP": 0
+          }
+        },
+        "buffer1": {
+          "type": "LAYER_TYPE.Buffer",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 113,
+            "FF": 106,
+            "BRAM": 2,
+            "DSP": 0
+          }
+        },
+        "RELU15_squeeze_split0": {
+          "type": "LAYER_TYPE.Squeeze",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "split0_squeeze_CONVOLUTION16": {
+          "type": "LAYER_TYPE.Squeeze",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "split0_squeeze_buffer1": {
+          "type": "LAYER_TYPE.Squeeze",
+          "interval": 1280.0,
+          "latency": 1280.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "split1_squeeze_buffer0": {
+          "type": "LAYER_TYPE.Squeeze",
+          "interval": 10.0,
+          "latency": 10.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        },
+        "split1_squeeze_GREATER24": {
+          "type": "LAYER_TYPE.Squeeze",
+          "interval": 10.0,
+          "latency": 10.0,
+          "resource_usage": {
+            "LUT": 0,
+            "FF": 0,
+            "BRAM": 0,
+            "DSP": 0
+          }
+        }
+      }
+    }
+  }
+}

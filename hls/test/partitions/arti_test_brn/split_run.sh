@@ -44,7 +44,7 @@ NETWORK=brn_se_test
 MODEL_PATH=$FPGACONVNET_OPTIMISER/examples/models/atheena/branchy_lenet_20220902.onnx
 WEIGHTS_PATH=""
 PARTITION_INFO_PATH=*.json
-IMAGE_PATH=$FPGACONVNET_HLS/test/data/IMAGES_ee-pc70_bs1024
+IMAGE_PATH=$FPGACONVNET_HLS/test/data/IMAGES_ee-pc75_bs1024
 ZYNQ_PART=xc7z045ffg900-2
 ZYNQ_BOARD=xilinx.com:zc706:part0:1.4
 #######################################################################
