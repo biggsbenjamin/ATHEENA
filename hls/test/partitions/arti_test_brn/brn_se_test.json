@@ -22,7 +22,7 @@
           "streams_out": [
             {
               "name": "CONVOLUTION13_POOLING14",
-              "coarse": 1,
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
@@ -37,7 +37,7 @@
             "cols_out": 32,
             "channels_out": 5,
             "coarse_in": 1,
-            "coarse_out": 1,
+            "coarse_out": 5,
             "coarse_group": 1,
             "groups": 1,
             "fine": 25,
@@ -77,7 +77,7 @@
           "streams_in": [
             {
               "name": "CONVOLUTION13_POOLING14",
-              "coarse": 1,
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
@@ -85,7 +85,7 @@
           "streams_out": [
             {
               "name": "POOLING14_POOLING14_squeeze_RELU15",
-              "coarse": 1,
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
@@ -99,9 +99,9 @@
             "rows_out": 16,
             "cols_out": 16,
             "channels_out": 5,
-            "coarse_in": 1,
-            "coarse_out": 1,
-            "coarse": 1,
+            "coarse_in": 5,
+            "coarse_out": 5,
+            "coarse": 5,
             "pad_top": 0,
             "pad_right": 0,
             "pad_left": 0,
@@ -129,7 +129,7 @@
           "streams_in": [
             {
               "name": "POOLING14_POOLING14_squeeze_RELU15",
-              "coarse": 1,
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
@@ -137,85 +137,6 @@
           "streams_out": [
             {
               "name": "POOLING14_squeeze_RELU15_RELU15",
-              "coarse": 5,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "parameters": {
-            "buffer_depth": 0,
-            "batch_size": 1024,
-            "rows_in": 16,
-            "cols_in": 16,
-            "channels_in": 5,
-            "rows_out": 16,
-            "cols_out": 16,
-            "channels_out": 5,
-            "coarse_in": 1,
-            "coarse_out": 5,
-            "data_width": 16
-          },
-          "node_in": [
-            "POOLING14"
-          ],
-          "node_out": [
-            "RELU15"
-          ],
-          "type": "SQUEEZE"
-        },
-        {
-          "name": "RELU15",
-          "streams_in": [
-            {
-              "name": "POOLING14_squeeze_RELU15_RELU15",
-              "coarse": 5,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "streams_out": [
-            {
-              "name": "RELU15_RELU15_squeeze_split0",
-              "coarse": 5,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "parameters": {
-            "buffer_depth": 0,
-            "batch_size": 1024,
-            "rows_in": 16,
-            "cols_in": 16,
-            "channels_in": 5,
-            "rows_out": 16,
-            "cols_out": 16,
-            "channels_out": 5,
-            "coarse_in": 5,
-            "coarse_out": 5,
-            "coarse": 5,
-            "data_width": 16
-          },
-          "node_in": [
-            "POOLING14_squeeze_RELU15"
-          ],
-          "node_out": [
-            "RELU15_squeeze_split0"
-          ],
-          "type": "RELU"
-        },
-        {
-          "name": "RELU15_squeeze_split0",
-          "streams_in": [
-            {
-              "name": "RELU15_RELU15_squeeze_split0",
-              "coarse": 5,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "streams_out": [
-            {
-              "name": "RELU15_squeeze_split0_split0",
               "coarse": 1,
               "ctrl": false,
               "split": false
@@ -235,18 +156,58 @@
             "data_width": 16
           },
           "node_in": [
+            "POOLING14"
+          ],
+          "node_out": [
             "RELU15"
+          ],
+          "type": "SQUEEZE"
+        },
+        {
+          "name": "RELU15",
+          "streams_in": [
+            {
+              "name": "POOLING14_squeeze_RELU15_RELU15",
+              "coarse": 1,
+              "ctrl": false,
+              "split": false
+            }
+          ],
+          "streams_out": [
+            {
+              "name": "RELU15_split0",
+              "coarse": 1,
+              "ctrl": false,
+              "split": false
+            }
+          ],
+          "parameters": {
+            "buffer_depth": 0,
+            "batch_size": 1024,
+            "rows_in": 16,
+            "cols_in": 16,
+            "channels_in": 5,
+            "rows_out": 16,
+            "cols_out": 16,
+            "channels_out": 5,
+            "coarse_in": 1,
+            "coarse_out": 1,
+            "coarse": 1,
+            "data_width": 16
+          },
+          "node_in": [
+            "POOLING14_squeeze_RELU15"
           ],
           "node_out": [
             "split0"
           ],
-          "type": "SQUEEZE"
+          "type": "RELU"
         },
         {
           "name": "split0",
           "streams_in": [
             {
-              "name": "RELU15_squeeze_split0_split0",
+              "name": "RELU15_split0",
               "coarse": 1,
               "ctrl": false,
               "split": false
@@ -281,34 +242,28 @@
             "ports_out": 2
           },
           "node_in": [
-            "RELU15_squeeze_split0"
+            "RELU15"
           ],
           "node_out": [
-            "CONVOLUTION16",
-            "buffer1"
+            "buffer1",
+            "split0_squeeze_CONVOLUTION16"
           ],
           "type": "SPLIT"
         },
         {
-          "name": "buffer1",
+          "name": "split0_squeeze_CONVOLUTION16",
           "streams_in": [
             {
               "name": "split0_stream",
               "coarse": 1,
               "ctrl": false,
               "split": true
-            },
-            {
-              "name": "GREATER24-ctrlout",
-              "coarse": 1,
-              "ctrl": true,
-              "split": false
             }
           ],
           "streams_out": [
             {
-              "name": "buffer1_CONVOLUTION28",
-              "coarse": 1,
+              "name": "split0_squeeze_CONVOLUTION16_CONVOLUTION16",
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
@@ -323,33 +278,30 @@
             "cols_out": 16,
             "channels_out": 5,
             "coarse_in": 1,
-            "coarse_out": 1,
-            "coarse": 1,
-            "data_width": 16,
-            "ctrledge": "24",
-            "drop_mode": true
+            "coarse_out": 5,
+            "data_width": 16
           },
           "node_in": [
             "split0"
           ],
           "node_out": [
-            "CONVOLUTION28"
+            "CONVOLUTION16"
           ],
-          "type": "BUFFER"
+          "type": "SQUEEZE"
         },
         {
           "name": "CONVOLUTION16",
           "streams_in": [
             {
-              "name": "split0_stream",
-              "coarse": 1,
+              "name": "split0_squeeze_CONVOLUTION16_CONVOLUTION16",
+              "coarse": 5,
               "ctrl": false,
-              "split": true
+              "split": false
             }
           ],
           "streams_out": [
             {
-              "name": "CONVOLUTION16_CONVOLUTION16_squeeze_POOLING17",
+              "name": "CONVOLUTION16_POOLING17",
               "coarse": 2,
               "ctrl": false,
               "split": false
@@ -364,7 +316,7 @@
             "rows_out": 16,
             "cols_out": 16,
             "channels_out": 10,
-            "coarse_in": 1,
+            "coarse_in": 5,
             "coarse_out": 2,
             "coarse_group": 1,
             "groups": 1,
@@ -391,20 +343,20 @@
             "biases_width": 16
           },
           "node_in": [
-            "split0"
+            "split0_squeeze_CONVOLUTION16"
           ],
           "node_out": [
-            "CONVOLUTION16_squeeze_POOLING17"
+            "POOLING17"
           ],
           "type": "CONVOLUTION",
           "weights_path": "exits.0.0.layer.0.weight",
           "bias_path": "exits.0.0.layer.0.bias"
         },
         {
-          "name": "CONVOLUTION16_squeeze_POOLING17",
+          "name": "POOLING17",
           "streams_in": [
             {
-              "name": "CONVOLUTION16_CONVOLUTION16_squeeze_POOLING17",
+              "name": "CONVOLUTION16_POOLING17",
               "coarse": 2,
               "ctrl": false,
               "split": false
@@ -412,47 +364,8 @@
           ],
           "streams_out": [
             {
-              "name": "CONVOLUTION16_squeeze_POOLING17_POOLING17",
-              "coarse": 1,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "parameters": {
-            "buffer_depth": 0,
-            "batch_size": 1024,
-            "rows_in": 16,
-            "cols_in": 16,
-            "channels_in": 10,
-            "rows_out": 16,
-            "cols_out": 16,
-            "channels_out": 10,
-            "coarse_in": 2,
-            "coarse_out": 1,
-            "data_width": 16
-          },
-          "node_in": [
-            "CONVOLUTION16"
-          ],
-          "node_out": [
-            "POOLING17"
-          ],
-          "type": "SQUEEZE"
-        },
-        {
-          "name": "POOLING17",
-          "streams_in": [
-            {
-              "name": "CONVOLUTION16_squeeze_POOLING17_POOLING17",
-              "coarse": 1,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "streams_out": [
-            {
               "name": "POOLING17_POOLING17_squeeze_RELU18",
-              "coarse": 1,
+              "coarse": 2,
               "ctrl": false,
               "split": false
             }
@@ -466,9 +379,9 @@
             "rows_out": 8,
             "cols_out": 8,
             "channels_out": 10,
-            "coarse_in": 1,
-            "coarse_out": 1,
-            "coarse": 1,
+            "coarse_in": 2,
+            "coarse_out": 2,
+            "coarse": 2,
             "pad_top": 0,
             "pad_right": 0,
             "pad_left": 0,
@@ -484,7 +397,7 @@
             "data_width": 16
           },
           "node_in": [
-            "CONVOLUTION16_squeeze_POOLING17"
+            "CONVOLUTION16"
           ],
           "node_out": [
             "POOLING17_squeeze_RELU18"
@@ -496,7 +409,7 @@
           "streams_in": [
             {
               "name": "POOLING17_POOLING17_squeeze_RELU18",
-              "coarse": 1,
+              "coarse": 2,
               "ctrl": false,
               "split": false
             }
@@ -504,7 +417,7 @@
           "streams_out": [
             {
               "name": "POOLING17_squeeze_RELU18_RELU18",
-              "coarse": 10,
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
@@ -518,8 +431,8 @@
             "rows_out": 8,
             "cols_out": 8,
             "channels_out": 10,
-            "coarse_in": 1,
-            "coarse_out": 10,
+            "coarse_in": 2,
+            "coarse_out": 5,
             "data_width": 16
           },
           "node_in": [
@@ -535,15 +448,15 @@
           "streams_in": [
             {
               "name": "POOLING17_squeeze_RELU18_RELU18",
-              "coarse": 10,
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
           ],
           "streams_out": [
             {
-              "name": "RELU18_RELU18_squeeze_INNERPRODUCT2",
-              "coarse": 10,
+              "name": "RELU18_INNERPRODUCT2",
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
@@ -557,72 +470,33 @@
             "rows_out": 8,
             "cols_out": 8,
             "channels_out": 10,
-            "coarse_in": 10,
-            "coarse_out": 10,
-            "coarse": 10,
+            "coarse_in": 5,
+            "coarse_out": 5,
+            "coarse": 5,
             "data_width": 16
           },
           "node_in": [
             "POOLING17_squeeze_RELU18"
           ],
           "node_out": [
-            "RELU18_squeeze_INNERPRODUCT2"
-          ],
-          "type": "RELU"
-        },
-        {
-          "name": "RELU18_squeeze_INNERPRODUCT2",
-          "streams_in": [
-            {
-              "name": "RELU18_RELU18_squeeze_INNERPRODUCT2",
-              "coarse": 10,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "streams_out": [
-            {
-              "name": "RELU18_squeeze_INNERPRODUCT2_INNERPRODUCT2",
-              "coarse": 2,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "parameters": {
-            "buffer_depth": 0,
-            "batch_size": 1024,
-            "rows_in": 8,
-            "cols_in": 8,
-            "channels_in": 10,
-            "rows_out": 8,
-            "cols_out": 8,
-            "channels_out": 10,
-            "coarse_in": 10,
-            "coarse_out": 2,
-            "data_width": 16
-          },
-          "node_in": [
-            "RELU18"
-          ],
-          "node_out": [
             "INNERPRODUCT2"
           ],
-          "type": "SQUEEZE"
+          "type": "RELU"
         },
         {
           "name": "INNERPRODUCT2",
           "streams_in": [
             {
-              "name": "RELU18_squeeze_INNERPRODUCT2_INNERPRODUCT2",
-              "coarse": 2,
+              "name": "RELU18_INNERPRODUCT2",
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
           ],
           "streams_out": [
             {
-              "name": "INNERPRODUCT2_split1",
-              "coarse": 5,
+              "name": "INNERPRODUCT2_INNERPRODUCT2_squeeze_split1",
+              "coarse": 2,
               "ctrl": false,
               "split": false
             }
@@ -636,8 +510,8 @@
             "rows_out": 1,
             "cols_out": 1,
             "channels_out": 10,
-            "coarse_in": 2,
-            "coarse_out": 5,
+            "coarse_in": 5,
+            "coarse_out": 2,
             "filters": 10,
             "data_width": 16,
             "weight_width": 16,
@@ -648,37 +522,31 @@
             "biases_width": 16
           },
           "node_in": [
-            "RELU18_squeeze_INNERPRODUCT2"
+            "RELU18"
           ],
           "node_out": [
-            "split1"
+            "INNERPRODUCT2_squeeze_split1"
           ],
           "type": "INNER_PRODUCT",
           "weights_path": "exits.0.2.weight",
           "bias_path": "exits.0.2.bias"
         },
         {
-          "name": "split1",
+          "name": "INNERPRODUCT2_squeeze_split1",
           "streams_in": [
             {
-              "name": "INNERPRODUCT2_split1",
-              "coarse": 5,
+              "name": "INNERPRODUCT2_INNERPRODUCT2_squeeze_split1",
+              "coarse": 2,
               "ctrl": false,
               "split": false
             }
           ],
           "streams_out": [
             {
-              "name": "split1_stream",
-              "coarse": 5,
+              "name": "INNERPRODUCT2_squeeze_split1_split1",
+              "coarse": 1,
               "ctrl": false,
-              "split": true
-            },
-            {
-              "name": "split1_stream",
-              "coarse": 5,
-              "ctrl": false,
-              "split": true
+              "split": false
             }
           ],
           "parameters": {
@@ -690,36 +558,40 @@
             "rows_out": 1,
             "cols_out": 1,
             "channels_out": 10,
-            "coarse_in": 5,
-            "coarse_out": 5,
-            "coarse": 5,
-            "ports_out": 2
+            "coarse_in": 2,
+            "coarse_out": 1,
+            "data_width": 16
           },
           "node_in": [
             "INNERPRODUCT2"
           ],
           "node_out": [
-            "split1_squeeze_buffer0",
-            "split1_squeeze_GREATER24"
+            "split1"
           ],
-          "type": "SPLIT"
+          "type": "SQUEEZE"
         },
         {
-          "name": "split1_squeeze_GREATER24",
+          "name": "split1",
           "streams_in": [
             {
-              "name": "split1_stream",
-              "coarse": 5,
+              "name": "INNERPRODUCT2_squeeze_split1_split1",
+              "coarse": 1,
               "ctrl": false,
-              "split": true
+              "split": false
             }
           ],
           "streams_out": [
             {
-              "name": "split1_squeeze_GREATER24_GREATER24",
+              "name": "split1_stream",
               "coarse": 1,
               "ctrl": false,
-              "split": false
+              "split": true
+            },
+            {
+              "name": "split1_stream",
+              "coarse": 1,
+              "ctrl": false,
+              "split": true
             }
           ],
           "parameters": {
@@ -731,26 +603,28 @@
             "rows_out": 1,
             "cols_out": 1,
             "channels_out": 10,
-            "coarse_in": 5,
+            "coarse_in": 1,
             "coarse_out": 1,
-            "data_width": 16
+            "coarse": 1,
+            "ports_out": 2
           },
           "node_in": [
-            "split1"
+            "INNERPRODUCT2_squeeze_split1"
           ],
           "node_out": [
+            "buffer0",
             "GREATER24"
           ],
-          "type": "SQUEEZE"
+          "type": "SPLIT"
         },
         {
           "name": "GREATER24",
           "streams_in": [
             {
-              "name": "split1_squeeze_GREATER24_GREATER24",
+              "name": "split1_stream",
               "coarse": 1,
               "ctrl": false,
-              "split": false
+              "split": true
             }
           ],
           "streams_out": [
@@ -781,57 +655,18 @@
             ]
           },
           "node_in": [
-            "split1_squeeze_GREATER24"
-          ],
-          "type": "GREATER"
-        },
-        {
-          "name": "split1_squeeze_buffer0",
-          "streams_in": [
-            {
-              "name": "split1_stream",
-              "coarse": 5,
-              "ctrl": false,
-              "split": true
-            }
-          ],
-          "streams_out": [
-            {
-              "name": "split1_squeeze_buffer0_buffer0",
-              "coarse": 1,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "parameters": {
-            "buffer_depth": 0,
-            "batch_size": 1024,
-            "rows_in": 1,
-            "cols_in": 1,
-            "channels_in": 10,
-            "rows_out": 1,
-            "cols_out": 1,
-            "channels_out": 10,
-            "coarse_in": 5,
-            "coarse_out": 1,
-            "data_width": 16
-          },
-          "node_in": [
             "split1"
           ],
-          "node_out": [
-            "buffer0"
-          ],
-          "type": "SQUEEZE"
+          "type": "GREATER"
         },
         {
           "name": "buffer0",
           "streams_in": [
             {
-              "name": "split1_squeeze_buffer0_buffer0",
+              "name": "split1_stream",
               "coarse": 1,
               "ctrl": false,
-              "split": false
+              "split": true
             },
             {
               "name": "GREATER24-ctrlout",
@@ -865,7 +700,7 @@
             "drop_mode": false
           },
           "node_in": [
-            "split1_squeeze_buffer0"
+            "split1"
           ],
           "node_out": [
             "brn_exit"
@@ -920,6 +755,54 @@
           "type": "IF"
         },
         {
+          "name": "buffer1",
+          "streams_in": [
+            {
+              "name": "split0_stream",
+              "coarse": 1,
+              "ctrl": false,
+              "split": true
+            },
+            {
+              "name": "GREATER24-ctrlout",
+              "coarse": 1,
+              "ctrl": true,
+              "split": false
+            }
+          ],
+          "streams_out": [
+            {
+              "name": "buffer1_CONVOLUTION28",
+              "coarse": 1,
+              "ctrl": false,
+              "split": false
+            }
+          ],
+          "parameters": {
+            "buffer_depth": 0,
+            "batch_size": 1024,
+            "rows_in": 16,
+            "cols_in": 16,
+            "channels_in": 5,
+            "rows_out": 16,
+            "cols_out": 16,
+            "channels_out": 5,
+            "coarse_in": 1,
+            "coarse_out": 1,
+            "coarse": 1,
+            "data_width": 16,
+            "ctrledge": "24",
+            "drop_mode": true
+          },
+          "node_in": [
+            "split0"
+          ],
+          "node_out": [
+            "CONVOLUTION28"
+          ],
+          "type": "BUFFER"
+        },
+        {
           "name": "CONVOLUTION28",
           "streams_in": [
             {
@@ -931,8 +814,8 @@
           ],
           "streams_out": [
             {
-              "name": "CONVOLUTION28_POOLING29",
-              "coarse": 2,
+              "name": "CONVOLUTION28_CONVOLUTION28_squeeze_POOLING29",
+              "coarse": 10,
               "ctrl": false,
               "split": false
             }
@@ -947,7 +830,7 @@
             "cols_out": 20,
             "channels_out": 10,
             "coarse_in": 1,
-            "coarse_out": 2,
+            "coarse_out": 10,
             "coarse_group": 1,
             "groups": 1,
             "fine": 25,
@@ -976,17 +859,56 @@
             "buffer1"
           ],
           "node_out": [
-            "POOLING29"
+            "CONVOLUTION28_squeeze_POOLING29"
           ],
           "type": "CONVOLUTION",
           "weights_path": "backbone.1.0.layer.0.weight",
           "bias_path": "backbone.1.0.layer.0.bias"
         },
         {
+          "name": "CONVOLUTION28_squeeze_POOLING29",
+          "streams_in": [
+            {
+              "name": "CONVOLUTION28_CONVOLUTION28_squeeze_POOLING29",
+              "coarse": 10,
+              "ctrl": false,
+              "split": false
+            }
+          ],
+          "streams_out": [
+            {
+              "name": "CONVOLUTION28_squeeze_POOLING29_POOLING29",
+              "coarse": 2,
+              "ctrl": false,
+              "split": false
+            }
+          ],
+          "parameters": {
+            "buffer_depth": 0,
+            "batch_size": 1024,
+            "rows_in": 20,
+            "cols_in": 20,
+            "channels_in": 10,
+            "rows_out": 20,
+            "cols_out": 20,
+            "channels_out": 10,
+            "coarse_in": 10,
+            "coarse_out": 2,
+            "data_width": 16
+          },
+          "node_in": [
+            "CONVOLUTION28"
+          ],
+          "node_out": [
+            "POOLING29"
+          ],
+          "type": "SQUEEZE"
+        },
+        {
           "name": "POOLING29",
           "streams_in": [
             {
-              "name": "CONVOLUTION28_POOLING29",
+              "name": "CONVOLUTION28_squeeze_POOLING29_POOLING29",
               "coarse": 2,
               "ctrl": false,
               "split": false
@@ -1027,7 +949,7 @@
             "data_width": 16
           },
           "node_in": [
-            "CONVOLUTION28"
+            "CONVOLUTION28_squeeze_POOLING29"
           ],
           "node_out": [
             "POOLING29_squeeze_RELU3"
@@ -1085,7 +1007,7 @@
           ],
           "streams_out": [
             {
-              "name": "RELU3_CONVOLUTION31",
+              "name": "RELU3_RELU3_squeeze_CONVOLUTION31",
               "coarse": 1,
               "ctrl": false,
               "split": false
@@ -1109,15 +1031,15 @@
             "POOLING29_squeeze_RELU3"
           ],
           "node_out": [
-            "CONVOLUTION31"
+            "RELU3_squeeze_CONVOLUTION31"
           ],
           "type": "RELU"
         },
         {
-          "name": "CONVOLUTION31",
+          "name": "RELU3_squeeze_CONVOLUTION31",
           "streams_in": [
             {
-              "name": "RELU3_CONVOLUTION31",
+              "name": "RELU3_RELU3_squeeze_CONVOLUTION31",
               "coarse": 1,
               "ctrl": false,
               "split": false
@@ -1125,8 +1047,47 @@
           ],
           "streams_out": [
             {
-              "name": "CONVOLUTION31_POOLING32",
+              "name": "RELU3_squeeze_CONVOLUTION31_CONVOLUTION31",
               "coarse": 2,
+              "ctrl": false,
+              "split": false
+            }
+          ],
+          "parameters": {
+            "buffer_depth": 0,
+            "batch_size": 1024,
+            "rows_in": 10,
+            "cols_in": 10,
+            "channels_in": 10,
+            "rows_out": 10,
+            "cols_out": 10,
+            "channels_out": 10,
+            "coarse_in": 1,
+            "coarse_out": 2,
+            "data_width": 16
+          },
+          "node_in": [
+            "RELU3"
+          ],
+          "node_out": [
+            "CONVOLUTION31"
+          ],
+          "type": "SQUEEZE"
+        },
+        {
+          "name": "CONVOLUTION31",
+          "streams_in": [
+            {
+              "name": "RELU3_squeeze_CONVOLUTION31_CONVOLUTION31",
+              "coarse": 2,
+              "ctrl": false,
+              "split": false
+            }
+          ],
+          "streams_out": [
+            {
+              "name": "CONVOLUTION31_CONVOLUTION31_squeeze_POOLING32",
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
@@ -1140,8 +1101,8 @@
             "rows_out": 12,
             "cols_out": 12,
             "channels_out": 20,
-            "coarse_in": 1,
-            "coarse_out": 2,
+            "coarse_in": 2,
+            "coarse_out": 5,
             "coarse_group": 1,
             "groups": 1,
             "fine": 25,
@@ -1167,29 +1128,68 @@
             "biases_width": 16
           },
           "node_in": [
-            "RELU3"
+            "RELU3_squeeze_CONVOLUTION31"
           ],
           "node_out": [
-            "POOLING32"
+            "CONVOLUTION31_squeeze_POOLING32"
           ],
           "type": "CONVOLUTION",
           "weights_path": "backbone.1.1.layer.0.weight",
           "bias_path": "backbone.1.1.layer.0.bias"
         },
         {
-          "name": "POOLING32",
+          "name": "CONVOLUTION31_squeeze_POOLING32",
           "streams_in": [
             {
-              "name": "CONVOLUTION31_POOLING32",
-              "coarse": 2,
+              "name": "CONVOLUTION31_CONVOLUTION31_squeeze_POOLING32",
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
           ],
           "streams_out": [
             {
-              "name": "POOLING32_POOLING32_squeeze_RELU33",
-              "coarse": 2,
+              "name": "CONVOLUTION31_squeeze_POOLING32_POOLING32",
+              "coarse": 4,
+              "ctrl": false,
+              "split": false
+            }
+          ],
+          "parameters": {
+            "buffer_depth": 0,
+            "batch_size": 1024,
+            "rows_in": 12,
+            "cols_in": 12,
+            "channels_in": 20,
+            "rows_out": 12,
+            "cols_out": 12,
+            "channels_out": 20,
+            "coarse_in": 5,
+            "coarse_out": 4,
+            "data_width": 16
+          },
+          "node_in": [
+            "CONVOLUTION31"
+          ],
+          "node_out": [
+            "POOLING32"
+          ],
+          "type": "SQUEEZE"
+        },
+        {
+          "name": "POOLING32",
+          "streams_in": [
+            {
+              "name": "CONVOLUTION31_squeeze_POOLING32_POOLING32",
+              "coarse": 4,
+              "ctrl": false,
+              "split": false
+            }
+          ],
+          "streams_out": [
+            {
+              "name": "POOLING32_RELU33",
+              "coarse": 4,
               "ctrl": false,
               "split": false
             }
@@ -1203,9 +1203,9 @@
             "rows_out": 6,
             "cols_out": 6,
             "channels_out": 20,
-            "coarse_in": 2,
-            "coarse_out": 2,
-            "coarse": 2,
+            "coarse_in": 4,
+            "coarse_out": 4,
+            "coarse": 4,
             "pad_top": 0,
             "pad_right": 0,
             "pad_left": 0,
@@ -1221,57 +1221,18 @@
             "data_width": 16
           },
           "node_in": [
-            "CONVOLUTION31"
-          ],
-          "node_out": [
-            "POOLING32_squeeze_RELU33"
-          ],
-          "type": "POOLING"
-        },
-        {
-          "name": "POOLING32_squeeze_RELU33",
-          "streams_in": [
-            {
-              "name": "POOLING32_POOLING32_squeeze_RELU33",
-              "coarse": 2,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "streams_out": [
-            {
-              "name": "POOLING32_squeeze_RELU33_RELU33",
-              "coarse": 4,
-              "ctrl": false,
-              "split": false
-            }
-          ],
-          "parameters": {
-            "buffer_depth": 0,
-            "batch_size": 1024,
-            "rows_in": 6,
-            "cols_in": 6,
-            "channels_in": 20,
-            "rows_out": 6,
-            "cols_out": 6,
-            "channels_out": 20,
-            "coarse_in": 2,
-            "coarse_out": 4,
-            "data_width": 16
-          },
-          "node_in": [
-            "POOLING32"
+            "CONVOLUTION31_squeeze_POOLING32"
           ],
           "node_out": [
             "RELU33"
           ],
-          "type": "SQUEEZE"
+          "type": "POOLING"
         },
         {
           "name": "RELU33",
           "streams_in": [
             {
-              "name": "POOLING32_squeeze_RELU33_RELU33",
+              "name": "POOLING32_RELU33",
               "coarse": 4,
               "ctrl": false,
               "split": false
@@ -1300,7 +1261,7 @@
             "data_width": 16
           },
           "node_in": [
-            "POOLING32_squeeze_RELU33"
+            "POOLING32"
           ],
           "node_out": [
             "RELU33_squeeze_INNERPRODUCT35"
@@ -1320,7 +1281,7 @@
           "streams_out": [
             {
               "name": "RELU33_squeeze_INNERPRODUCT35_INNERPRODUCT35",
-              "coarse": 10,
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
@@ -1335,7 +1296,7 @@
             "cols_out": 6,
             "channels_out": 20,
             "coarse_in": 4,
-            "coarse_out": 10,
+            "coarse_out": 5,
             "data_width": 16
           },
           "node_in": [
@@ -1351,7 +1312,7 @@
           "streams_in": [
             {
               "name": "RELU33_squeeze_INNERPRODUCT35_INNERPRODUCT35",
-              "coarse": 10,
+              "coarse": 5,
               "ctrl": false,
               "split": false
             }
@@ -1373,7 +1334,7 @@
             "rows_out": 1,
             "cols_out": 1,
             "channels_out": 10,
-            "coarse_in": 10,
+            "coarse_in": 5,
             "coarse_out": 1,
             "filters": 10,
             "data_width": 16,

@@ -14,10 +14,12 @@ from google.protobuf import json_format
 #from google.protobuf.text_format import MessageToString
 from google.protobuf.json_format import MessageToJson
 
+import math
+
 sys.path.append(os.environ.get("FPGACONVNET_OPTIMISER"))
 sys.path.append(os.environ.get("FPGACONVNET_HLS"))
 
-def exit_fusion(args,ee1,eef):
+def exit_fusion(args,ee1,eef,output_name):
     #FIXME currently only works for two stage networks
     #load first exit stage - deep copy as this will form the basis of the output
     merge_out = copy.deepcopy(ee1)
@@ -56,8 +58,6 @@ def exit_fusion(args,ee1,eef):
                 print("Found layer before exit merge")
                 lyr.node_out.pop()
                 lyr.node_out.append("brn_exit")
-
-
 
     # Little helper function to edit io for changing layers
     def _connect_layers(input_layer,output_layer, out_stream_index=0):
@@ -115,10 +115,16 @@ def exit_fusion(args,ee1,eef):
         os.makedirs(args.output_path)
         print("Output Path does not exist. Generating...")
 
-    with open(os.path.join(args.output_path,f"{args.output_name}.json"),"w") as f:
+    with open(os.path.join(args.output_path,f"{output_name}"),"w") as f:
         f.write(MessageToJson(merge_out,preserving_proto_field_name=True))
-    print(f"JSON merge completed. Saved to {args.output_name}.json")
+    print(f"JSON merge completed. Saved to {output_name}")
     return
+
+def _strip_outer(str_in, strt_ch, end_ch):
+    start = str_in.index(strt_ch)
+    stripped = str_in[start+1:]
+    end = stripped.index(end_ch)
+    return stripped[:end]
 
 if __name__ == "__main__":
     #NOTE arguments returned are delineated by spaces, newline
@@ -126,10 +132,16 @@ if __name__ == "__main__":
             description="Script for merging ee json files.")
 
     # TODO make this compatitble with multiple exit stages
-    parser.add_argument('-p1', '--json_path1', metavar='PATH', required=True,
+    parser.add_argument('-p1', '--json_path1', metavar='PATH', required=False,
             help='Path to network ee1 json file (.json)')
-    parser.add_argument('-pf', '--json_pathf', metavar='PATH', required=True,
+    parser.add_argument('-pf', '--json_pathf', metavar='PATH', required=False,
             help='Path to network eef json file (.json)')
+
+    parser.add_argument('-c', '--combined_path', metavar='PATH', required=False,
+            help='Path to the optimal combined network stages')
+    parser.add_argument('-j', '--json_path', metavar='PATH', required=False,
+            help='Path to the separate json files')
+
     parser.add_argument('-op','--output_path', metavar='PATH', required=True,
             help='Path to output directory')
     parser.add_argument("-on","--output_name", type=str, required=True,
@@ -138,14 +150,65 @@ if __name__ == "__main__":
     # parse arguments
     args = parser.parse_args()
 
-    # load partition information
-    ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
-    with open(args.json_path1,'r') as f:
-        json_format.Parse(f.read(), ee1)
+    if args.json_path1 is not None and args.json_pathf is not None:
+        # load partition information
+        ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
+        with open(args.json_path1,'r') as f:
+            json_format.Parse(f.read(), ee1)
 
-    eef = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
-    with open(args.json_pathf,'r') as f:
-        json_format.Parse(f.read(), eef)
+        eef = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
+        with open(args.json_pathf,'r') as f:
+            json_format.Parse(f.read(), eef)
 
-    #NOTE defaulting to partition 0
-    exit_fusion(args, ee1, eef)
+        output_name = "{}.json".format(args.output_name)
+
+        #NOTE defaulting to partition 0
+        exit_fusion(args, ee1, eef, output_name)
+    else:
+        # parser the combined file and generate all jsons
+        with open(args.combined_path, 'r') as f:
+            lines = f.readlines()
+            entries = (len(lines)-1)//3
+            print(entries)
+            entr = [lines[entry*3 : entry*3 +3] for entry in range(1,entries)]
+
+        for e in entr:
+            # fixup entry 0 - coords on graph
+            e[0] = _strip_outer(e[0], '[',']')
+            coords = e[0].split()
+            thru = math.floor(float(coords[1]))
+            rsc = int(float(coords[0])*100)
+            e[0] = [rsc,thru]
+
+            print("Throughput:{} Resources:{}".format(thru, rsc))
+
+            # fixup entry 1 - ee1 report
+            e[1] = _strip_outer(e[1], "'", "'")
+            # remove 'report_'
+            e[1] = e[1][7:]
+            rsc_lim = e[1][26:28]
+            e[1] = os.path.join(args.json_path,"post_optim-rsc{}p/{}".format(rsc_lim,e[1]))
+
+            # fixup entry 2 - eef report
+            e[2] = _strip_outer(e[2], "'", "'")
+            e[2] = e[2][7:]
+            rsc_lim = e[2][26:28]
+            e[2] = os.path.join(args.json_path,"post_optim-rsc{}p/{}".format(rsc_lim,e[2]))
+            print(e)
+
+        # generate the combined file
+        for jlist in entr:
+            j1,jf = jlist[1],jlist[2]
+            rsc = jlist[0][0]
+            thru = jlist[0][1]
+            ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
+            with open(j1,'r') as f:
+                json_format.Parse(f.read(), ee1)
+
+            eef = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
+            with open(jf,'r') as f:
+                json_format.Parse(f.read(), eef)
+
+            output_name = "{}_rsc{}_thru{}.json".format(args.output_name, rsc, thru)
+
+            exit_fusion(args, ee1, eef, output_name)

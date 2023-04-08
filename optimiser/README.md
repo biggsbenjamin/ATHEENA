@@ -52,17 +52,30 @@ Running the `gen_graph` experiment will generate a pareto front for the optimise
 
 - `(output_path)/combined_rpt_eefrac(PR).txt`: lists the pareto front combinations of network stages and their expected throughput and resource usage.
 
-Note: for a graph containing baseline results, specify the path using `-bi`.
+> **Note**: for a graph containing baseline results, specify the path using `-bi`.
+
+### Merging optimised stages
+
+Run the following command to perform a stage merge for all the results in the combined report.
 
 ```Shell
 python -m fpgaconvnet_optimiser.tools.ee_stage_merger \
-    -p1 outputs/branchy_lenet/post_optim-rsc30p/branchy_lenet-ee1-rsc30p-iter0.json \
-    -pf outputs/branchy_lenet/post_optim-rsc40p/branchy_lenet-eef-rsc40p-iter0.json \
+    -c outputs/branchy_lenet/results/combined_rpt_eefrac75.txt \
+    -j outputs/branchy_lenet/ \
     -on branchy_lenet_merged \
-    -op outputs/branchy_lenet/
+    --output_path outputs/branchy_lenet/merged/
 ```
 
-- `(output_path)/branchy_lenet_merged.json`: the final hardware specification ready to be implemented using the HLS backend.
+- `(output_path)/branchy_lenet_merged(resources and throughput).json`: the final hardware specification ready to be implemented using the HLS backend.
+
+Copy this `.json` file into a folder in `hls/test/partitions/(example)/`.
+
+For example: 
+```
+mkdir -p ../hls/test/partitions/branchy_lenet_eg
+
+cp outputs/branchy_lenet/merged/branchy_lenet_merged_rsc80_thru95000.json ../hls/test/partitions/branchy_lenet_eg/
+```
 
 ## Additional Information
 
