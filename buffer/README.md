@@ -54,24 +54,14 @@ For example:
 ## Buffer Generation
 
 The current buffer generation is simplified by the `./gen_buff.sh` script. 
-1. Specify the buffer size requirements based on the reported combined usage from the optimiser.
-> **Note**: Specify `95` for the largest buffer for batch size 1024.
 
-2. Activate the ATHEENA optimiser environment and run the script to generate a buffer using the example configurations based on the resource point. 
+Specify the buffer size requirements based on the reported combined usage from the optimiser.
+> **Note**: Specify `a` to generate all the buffer sizes and let the HLS backend choose the best one.
 
 Be sure to run this *before* HLS backend is run.
 
+### Example Buffers
 Further example buffer generation configurations files can be found in `data/layers/conditional_buffer/test_*`. Please look at this folder for examples of creating new configurations.
 
 > **Note**: Testing of the buffer module is not included as an artifact for this paper. However tests 0, 1, 2, and 3 come with input and output data for verification.
 > To test these configurations you can run: `sbt "testOnly fpgaconvnet.layers.conditional_buffer_test.BasicConfigTest"` and view the results in `test_run_dir`.
-
-## Verilog Generation
-
-Once the design is verified using chisel's testbench setup, you can the start generating the verilog. This can be done using the `build_verilog.sh` script in the `scripts` folder. This script takes as an input the module to generate as well as the configuration for that module. The generated verilog appears in the `impl` folder.
-
-Further to generating the hardware, you can also checkout the resource usage of the module using the `scripts/get_rsc_usage.tcl` vivado script. An example for the generated `Accum` module is as follows:
-
-```
-vivado -mode batch -notrace -source scripts/get_rsc_usage.tcl -tclargs ConditionalBufferFixed
-```
