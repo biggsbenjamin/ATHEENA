@@ -15,6 +15,7 @@ from google.protobuf import json_format
 from google.protobuf.json_format import MessageToJson
 
 import math
+import re
 
 sys.path.append(os.environ.get("FPGACONVNET_OPTIMISER"))
 sys.path.append(os.environ.get("FPGACONVNET_HLS"))
@@ -177,7 +178,7 @@ if __name__ == "__main__":
             e[0] = _strip_outer(e[0], '[',']')
             coords = e[0].split()
             thru = math.floor(float(coords[1]))
-            rsc = int(float(coords[0])*100)
+            rsc = math.floor(float(coords[0])*100)
             e[0] = [rsc,thru]
 
             print("Throughput:{} Resources:{}".format(thru, rsc))
@@ -186,13 +187,14 @@ if __name__ == "__main__":
             e[1] = _strip_outer(e[1], "'", "'")
             # remove 'report_'
             e[1] = e[1][7:]
-            rsc_lim = e[1][26:28]
+            # finds the resource lim specified in the file name
+            rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)", e[1]).group()
             e[1] = os.path.join(args.json_path,"post_optim-rsc{}p/{}".format(rsc_lim,e[1]))
 
             # fixup entry 2 - eef report
             e[2] = _strip_outer(e[2], "'", "'")
             e[2] = e[2][7:]
-            rsc_lim = e[2][26:28]
+            rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)", e[2]).group()
             e[2] = os.path.join(args.json_path,"post_optim-rsc{}p/{}".format(rsc_lim,e[2]))
             print(e)
 
