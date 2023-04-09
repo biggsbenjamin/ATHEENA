@@ -185,7 +185,7 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
         [get_bd_pins rst/interconnect_aresetn   ]
 
     # connecting reset block to reset of all peripherals
-    connect_bd_net -net peripheral_reset \
+    connect_bd_net -net peripheral_aresetn \
         [get_bd_pins hp_in_ic/M00_ARESETN   ] \
         [get_bd_pins hp_out_ic/M00_ARESETN  ] \
         [get_bd_pins hp_in_ic/S00_ARESETN   ] \
@@ -194,6 +194,10 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
         [get_bd_pins out_fifo/s_axis_aresetn] \
         [get_bd_pins dma/axi_resetn         ] \
         [get_bd_pins rst/peripheral_aresetn ]
+
+    # connecting and active high reset for the chisel buffers
+    connect_bd_net -net peripheral_reset \
+        [get_bd_pins rst/peripheral_reset ]
 
     ########################  instantiate network hw       ###########################
 
@@ -242,13 +246,13 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
     connect_bd_net -net pl_clk              [get_bd_pins ctrl_ic/ACLK       ]
     connect_bd_net -net pl_clk              [get_bd_pins ctrl_ic/S00_ACLK   ]
     connect_bd_net -net interconnect_reset  [get_bd_pins ctrl_ic/ARESETN    ]
-    connect_bd_net -net peripheral_reset    [get_bd_pins ctrl_ic/S00_ARESETN]
+    connect_bd_net -net peripheral_aresetn    [get_bd_pins ctrl_ic/S00_ARESETN]
         
     for {set s_idx 0} {$s_idx < [expr $ip_num + 1]} {incr s_idx} {
         # connect clocks, reset (to periph and ic)
         set ctrl_m [format "%02d" $s_idx]
         connect_bd_net -net pl_clk              [get_bd_pins ctrl_ic/M${ctrl_m}_ACLK    ]
-        connect_bd_net -net peripheral_reset    [get_bd_pins ctrl_ic/M${ctrl_m}_ARESETN ]
+        connect_bd_net -net peripheral_aresetn    [get_bd_pins ctrl_ic/M${ctrl_m}_ARESETN ]
     }
     
     # add top layer to IP
@@ -257,7 +261,7 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
     lappend ip_cell_list $net_cell
     # top layer connections 
     connect_bd_net -net pl_clk              [get_bd_pins ${NET}/ap_clk]
-    connect_bd_net -net peripheral_reset    [get_bd_pins ${NET}/ap_rst_n]
+    connect_bd_net -net peripheral_aresetn    [get_bd_pins ${NET}/ap_rst_n]
     connect_bd_net      [get_bd_pins ${NET}/interrupt       ] \
                         [get_bd_pins irq_c/In2              ]
     # connect top axilite port
@@ -269,23 +273,43 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
     connect_bd_intf_net [get_bd_intf_pins ${NET}/dma_out    ] \
                         [get_bd_intf_pins out_fifo/S_AXIS   ]
     
+    # add in path to chisel buffers
+    set sub_pth "../../../../../buffer/impl"
+    set repo_tmp [get_property ip_repo_paths [current_project] ]
+    lappend repo_tmp $PATH/$sub_pth
+    #add the layers to IP
+    set_property ip_repo_paths $repo_tmp [current_project]
+    update_ip_catalog
+
     puts "Starting layer loop" 
     set ivar 0
     foreach lyr $layer_list {
-        # add the layers to IP
-        import_hls $lyr $lyr
-        # create layer instances
-        lappend ip_cell_list [create_bd_cell -type ip -vlnv xilinx.com:hls:${lyr}_top:1.0 ${lyr} ]
-        connect_bd_net -net pl_clk [get_bd_pins ${lyr}/ap_clk] ; # connect clock
-        connect_bd_net -net peripheral_reset [get_bd_pins ${lyr}/ap_rst_n] ; # connect reset
-        # connect component interrupts
-        #connect_bd_net [get_bd_pins ${lyr}/interrupt] [get_bd_pins intr_cc/In${ivar}]
-        # connect axi lite ports to ic
-        set ctrl_m [format "%02d" [expr $ivar + 2]] ; # generate leading zero
-        connect_bd_intf_net [get_bd_intf_pins ctrl_ic/M${ctrl_m}_AXI] \
-                            [get_bd_intf_pins ${lyr}/s_axi_ctrl]
-        incr ivar
+        # add the layers to IP # except buffer0/1
+        if {(![string equal $lyr buffer1] && ![string equal $lyr buffer0])} {
+            import_hls $lyr $lyr
+            # create layer instances
+            lappend ip_cell_list [create_bd_cell -type ip -vlnv \
+                xilinx.com:hls:${lyr}_top:1.0 ${lyr} ]
+            connect_bd_net -net pl_clk [get_bd_pins ${lyr}/ap_clk] ; # connect clock
+            connect_bd_net -net peripheral_aresetn [get_bd_pins ${lyr}/ap_rst_n] ; # connect reset
+            # connect component interrupts
+            #connect_bd_net [get_bd_pins ${lyr}/interrupt] [get_bd_pins intr_cc/In${ivar}]
+            # connect axi lite ports to ic
+            set ctrl_m [format "%02d" [expr $ivar + 2]] ; # generate leading zero
+            connect_bd_intf_net [get_bd_intf_pins ctrl_ic/M${ctrl_m}_AXI] \
+                                [get_bd_intf_pins ${lyr}/s_axi_ctrl]
+            incr ivar
+        } else {
+            puts "Found buff: ${lyr}"
+            # create layer instances
+            set bnum [string trim $lyr "buffer"]
+            lappend ip_cell_list [create_bd_cell -type ip -vlnv \
+                fccm_artifact.co.uk:fpgaconvnet:cond_buffer_${bnum}_80:1.0 ${lyr} ]
+            connect_bd_net -net pl_clk [get_bd_pins ${lyr}/clock] ; # connect clock
+            connect_bd_net -net peripheral_reset [get_bd_pins ${lyr}/reset] ; # connect reset
+        }
     }
+
     #debug save
     save_bd_design
     puts "IP CELL LIST HERE: $ip_cell_list"
@@ -349,27 +373,43 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
                 #           out_opidx_crsidx_V_data_V
                 if {[expr $coarse == 1]} {
                     # stupid reordering of output name string
+                    # TODO chisel buffer fix
+                    if {(![string equal $lyr_o buffer1] && ![string equal $lyr_o buffer0])} {
+                        set lyr_o_datapin "${lyr_o}/in_0_V_data_V"
+                        set lyr_o_sidpin "${lyr_o}/in_0_V_batchid_V"
+                    } else {
+                        set lyr_o_datapin "${lyr_o}/io_in_0"
+                        set lyr_o_sidpin "${lyr_o}/io_in_id_0"
+                    }
                     #connect out to in
                     connect_bd_intf_net \
                         [get_bd_intf_pins ${lyr}/out_V_data_V_${op_idx}_0 ] \
-                        [get_bd_intf_pins ${lyr_o}/in_0_V_data_V]
+                        [get_bd_intf_pins ${lyr_o_datapin} ]
                     ##### BATCH INFORMATION #####
                     connect_bd_intf_net \
                         [get_bd_intf_pins ${lyr}/out_V_batchid_V_${op_idx}_0 ] \
-                        [get_bd_intf_pins ${lyr_o}/in_0_V_batchid_V]
+                        [get_bd_intf_pins ${lyr_o_sidpin} ]
                     #debug save
                     current_bd_instance $oldCurInst
                     save_bd_design
                 } else {
                     for {set crs_idx 0} {$crs_idx < $coarse} {incr crs_idx} {
+                        # TODO chisel buffer fix
+                        if {(![string equal $lyr_o buffer1] && ![string equal $lyr_o buffer0])} {
+                            set lyr_o_datapin "${lyr_o}/in_${crs_idx}_V_data_V"
+                            set lyr_o_sidpin "${lyr_o}/in_${crs_idx}_V_batchid_V"
+                        } else {
+                            set lyr_o_datapin "${lyr_o}/io_in_${crs_idx}"
+                            set lyr_o_sidpin "${lyr_o}/io_in_id_${crs_idx}"
+                        }
                         #connect out to in
                         connect_bd_intf_net \
                             [get_bd_intf_pins ${lyr}/out_${op_idx}_${crs_idx}_V_data_V ] \
-                            [get_bd_intf_pins ${lyr_o}/in_${crs_idx}_V_data_V]
+                            [get_bd_intf_pins $lyr_o_datapin ]
                         ##### BATCH INFORMATION #####
                         connect_bd_intf_net \
                             [get_bd_intf_pins ${lyr}/out_${op_idx}_${crs_idx}_V_batchid_V ] \
-                            [get_bd_intf_pins ${lyr_o}/in_${crs_idx}_V_batchid_V]
+                            [get_bd_intf_pins $lyr_o_sidpin ]
                         #debug save
                         current_bd_instance $oldCurInst
                         save_bd_design
@@ -391,14 +431,28 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
                         #puts "Connecting $lyr to $lyr_o @ $coarse"
                         # iterate over coarse and connect
                         for {set crs_idx 0} {$crs_idx < $coarse} {incr crs_idx} {
+                            if {(![string equal $lyr buffer1] && ![string equal $lyr buffer0])} {
+                                set lyr_datapin "${lyr}/out_${crs_idx}_V_data_V"
+                                set lyr_sidpin "${lyr}/out_${crs_idx}_V_batchid_V"
+                            } else {
+                                set lyr_datapin "${lyr}/io_out_${crs_idx}"
+                                set lyr_sidpin "${lyr}/io_out_id_${crs_idx}"
+                            }
+                            if {(![string equal $lyr_o buffer1] && ![string equal $lyr_o buffer0])} {
+                                set lyr_o_datapin "${lyr_o}/in_${crs_idx}_V_data_V"
+                                set lyr_o_sidpin "${lyr_o}/in_${crs_idx}_V_batchid_V"
+                            } else {
+                                set lyr_o_datapin "${lyr_o}/io_in_${crs_idx}"
+                                set lyr_o_sidpin "${lyr_o}/io_in_id_${crs_idx}"
+                            }
                             #connect out to in
                             connect_bd_intf_net \
-                                [get_bd_intf_pins ${lyr}/out_${crs_idx}_V_data_V ] \
-                                [get_bd_intf_pins ${lyr_o}/in_${crs_idx}_V_data_V]
+                                [get_bd_intf_pins $lyr_datapin ] \
+                                [get_bd_intf_pins $lyr_o_datapin]
                             ##### BATCH INFORMATION #####
                             connect_bd_intf_net \
-                                [get_bd_intf_pins ${lyr}/out_${crs_idx}_V_batchid_V ] \
-                                [get_bd_intf_pins ${lyr_o}/in_${crs_idx}_V_batchid_V]
+                                [get_bd_intf_pins $lyr_sidpin ] \
+                                [get_bd_intf_pins $lyr_o_sidpin]
                             #debug save
                             current_bd_instance $oldCurInst
                             save_bd_design
@@ -409,6 +463,8 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
         }
     }
 
+
+    ########## Connect buffer layers ############
     ########## CONNECT Control layers ###########
     # run python get_conn with control flag
     # number of control layers
@@ -427,12 +483,12 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
             #connect out to in
             connect_bd_intf_net \
                 [get_bd_intf_pins ${ctrl_lyr}/out_${ctrl_idx}_V_data ] \
-                [get_bd_intf_pins ${lyr_o}/ctrl_in_V_data]
+                [get_bd_intf_pins ${lyr_o}/io_ctrl_drop]
             # TODO allow the exit merge to have coarse folding, per layer???
             ##### BATCH INFORMATION #####
             connect_bd_intf_net \
                 [get_bd_intf_pins ${ctrl_lyr}/out_${ctrl_idx}_V_batchid_V ] \
-                [get_bd_intf_pins ${lyr_o}/ctrl_in_V_batchid_V]
+                [get_bd_intf_pins ${lyr_o}/io_ctrl_id]
             #debug save
             current_bd_instance $oldCurInst
             save_bd_design
@@ -440,22 +496,30 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
     }
     
     ########## CONNECT exit predecessors ###########
-    # length is number of inputs tp exit merge
+    # length is number of inputs to exit merge
     set in_len [llength $exit_layer_preds]
     # TODO allow the exit merge to have coarse folding, per layer???
     set exit_coarse 1
     for {set ip_idx 0} {$ip_idx < $in_len} {incr ip_idx} {
         set lyr_i [lindex $exit_layer_preds $ip_idx]
         # connecting input layer to exit
+        if {(![string equal $lyr_i buffer1] && ![string equal $lyr_i buffer0])} {
+            set lyr_i_datapin "${lyr_i}/out_0_V_data_V"
+            set lyr_i_sidpin "${lyr_i}/out_0_V_batchid_V"
+        } else {
+            set lyr_i_datapin "${lyr_i}/io_out_0"
+            set lyr_i_sidpin "${lyr_i}/io_out_id_0"
+        }
+
         #connect out to in
         connect_bd_intf_net \
             [get_bd_intf_pins ${p_out}/exits_${ip_idx}_V_data_V ] \
-            [get_bd_intf_pins ${lyr_i}/out_0_V_data_V]
+            [get_bd_intf_pins $lyr_i_datapin]
         # TODO allow the exit merge to have coarse folding, per layer???
         ##### BATCH INFORMATION #####
         connect_bd_intf_net \
             [get_bd_intf_pins ${p_out}/exits_${ip_idx}_V_batchid_V ] \
-            [get_bd_intf_pins ${lyr_i}/out_0_V_batchid_V]
+            [get_bd_intf_pins $lyr_i_sidpin]
         #debug save
         current_bd_instance $oldCurInst
         save_bd_design

@@ -40,7 +40,8 @@ The following instructions are taken from [Chisel's](https://github.com/chipsall
 
 ```
 curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-x86_64-pc-linux.gz | gzip -d > cs && chmod +x cs 
-
+```
+```
 ./cs setup
 ```
 
@@ -50,7 +51,8 @@ curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-x86_64
 
 ```
 cs install scala:2.12.13 && cs install scalac:2.12.13
-
+```
+```
 cs install sbt:1.4.9 && cs install sbtn:1.4.9
 ```
 > **Note**: To check the scala and sbt versions, run `scala -version` and `sbt --script-version`.
@@ -59,7 +61,8 @@ cs install sbt:1.4.9 && cs install sbtn:1.4.9
 
 ```
 cd ./buffer/
-
+```
+```
 sbt pack
 ```
 
@@ -181,13 +184,14 @@ cd ../hls/test/partitions/
 ../../scripts/split_run.sh -a \
     -n branchy_lenet_eg \
     -m $FPGACONVNET_OPTIMISER/examples/models/atheena/branchy_lenet_20220902.onnx \
-    -p branchy_lenet_eg/branchy_lenet_merged_rsc80_thru95000.json \
+    -p branchy_lenet_merged_rsc80_thru95000.json \
     -v
 ```
 
 > **Note**: The `-a` is used to generate all the network layers, the top layer, and the host code. The `-v` flag is used to stitch the resulting network IP layers into a full board design and then run Vivado synthesis and implementation before finally generating the bitstream. The script can be run with or without these flags if only one operation is required.
 
 8. The final step requires some manual integration with the Vivado SDK and assumes that the target board is the ZC706 (used in the paper).
+    
     a. Open the resulting `project_1` in `test/partitions/branchy_lenet_eg/partition_0/branchy_lenet_eg_hw_prj`
 
     b. Export the hardware + bitstream: `File > Export > Export Hardware`. Check `include bitstream`.
