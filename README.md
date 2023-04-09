@@ -228,5 +228,7 @@ These folders contain:
 
 - `split_run.sh` script that regenerates the HLS files and Vivado project.
 
+- Run the generation from inside the folder, using `./split_run.sh -a -v`.
+
 A copy of the hardware project with host code for each of these examples can be found and downloaded [here](https://drive.google.com/drive/folders/15Mc-UckojIFMW_R6GzN4vwPkShtwQtSw?usp=sharing)
 > **Note**: to unzip use `tar -xzvf a1_hw_artifact.tar.gz` and then opened using Vivado design suite and SDK.

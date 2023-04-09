@@ -86,30 +86,30 @@ XSplit1_top lyr13;
 XSplit1_top_Config *lyr13_cfg;
 XGreater24_top lyr14;
 XGreater24_top_Config *lyr14_cfg;
-XBrn_exit_top lyr16;
-XBrn_exit_top_Config *lyr16_cfg;
-XConvolution28_top lyr18;
-XConvolution28_top_Config *lyr18_cfg;
-XConvolution28_squeeze_pooling29_top lyr19;
-XConvolution28_squeeze_pooling29_top_Config *lyr19_cfg;
-XPooling29_top lyr20;
-XPooling29_top_Config *lyr20_cfg;
-XPooling29_squeeze_relu3_top lyr21;
-XPooling29_squeeze_relu3_top_Config *lyr21_cfg;
-XRelu3_top lyr22;
-XRelu3_top_Config *lyr22_cfg;
-XConvolution31_top lyr23;
-XConvolution31_top_Config *lyr23_cfg;
-XConvolution31_squeeze_pooling32_top lyr24;
-XConvolution31_squeeze_pooling32_top_Config *lyr24_cfg;
-XPooling32_top lyr25;
-XPooling32_top_Config *lyr25_cfg;
-XRelu33_top lyr26;
-XRelu33_top_Config *lyr26_cfg;
-XRelu33_squeeze_innerproduct35_top lyr27;
-XRelu33_squeeze_innerproduct35_top_Config *lyr27_cfg;
-XInnerproduct35_top lyr28;
-XInnerproduct35_top_Config *lyr28_cfg;
+XBrn_exit_top lyr15;
+XBrn_exit_top_Config *lyr15_cfg;
+XConvolution28_top lyr16;
+XConvolution28_top_Config *lyr16_cfg;
+XConvolution28_squeeze_pooling29_top lyr17;
+XConvolution28_squeeze_pooling29_top_Config *lyr17_cfg;
+XPooling29_top lyr18;
+XPooling29_top_Config *lyr18_cfg;
+XPooling29_squeeze_relu3_top lyr19;
+XPooling29_squeeze_relu3_top_Config *lyr19_cfg;
+XRelu3_top lyr20;
+XRelu3_top_Config *lyr20_cfg;
+XConvolution31_top lyr21;
+XConvolution31_top_Config *lyr21_cfg;
+XConvolution31_squeeze_pooling32_top lyr22;
+XConvolution31_squeeze_pooling32_top_Config *lyr22_cfg;
+XPooling32_top lyr23;
+XPooling32_top_Config *lyr23_cfg;
+XRelu33_top lyr24;
+XRelu33_top_Config *lyr24_cfg;
+XRelu33_squeeze_innerproduct35_top lyr25;
+XRelu33_squeeze_innerproduct35_top_Config *lyr25_cfg;
+XInnerproduct35_top lyr26;
+XInnerproduct35_top_Config *lyr26_cfg;
 
 // sd file system from example
 FATFS fatfs;
@@ -293,111 +293,111 @@ void initPeriph() {
         }
     }
 
+    xil_printf("Initialising fpgaconvnet layer15\n\r");
+    lyr15_cfg = XBrn_exit_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_BRN_EXIT_DEVICE_ID);
+    if (lyr15_cfg) {
+        int status = XBrn_exit_top_CfgInitialize(&lyr15, lyr15_cfg);
+        if (status != XST_SUCCESS) {
+            xil_printf("Error initalising layer :15:\n\r");
+        }
+    }
+
     xil_printf("Initialising fpgaconvnet layer16\n\r");
-    lyr16_cfg = XBrn_exit_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_BRN_EXIT_DEVICE_ID);
+    lyr16_cfg = XConvolution28_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_CONVOLUTION28_DEVICE_ID);
     if (lyr16_cfg) {
-        int status = XBrn_exit_top_CfgInitialize(&lyr16, lyr16_cfg);
+        int status = XConvolution28_top_CfgInitialize(&lyr16, lyr16_cfg);
         if (status != XST_SUCCESS) {
             xil_printf("Error initalising layer :16:\n\r");
         }
     }
 
+    xil_printf("Initialising fpgaconvnet layer17\n\r");
+    lyr17_cfg = XConvolution28_squeeze_pooling29_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_CONVOLUTION28_SQUEEZE_POOLING29_DEVICE_ID);
+    if (lyr17_cfg) {
+        int status = XConvolution28_squeeze_pooling29_top_CfgInitialize(&lyr17, lyr17_cfg);
+        if (status != XST_SUCCESS) {
+            xil_printf("Error initalising layer :17:\n\r");
+        }
+    }
+
     xil_printf("Initialising fpgaconvnet layer18\n\r");
-    lyr18_cfg = XConvolution28_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_CONVOLUTION28_DEVICE_ID);
+    lyr18_cfg = XPooling29_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_POOLING29_DEVICE_ID);
     if (lyr18_cfg) {
-        int status = XConvolution28_top_CfgInitialize(&lyr18, lyr18_cfg);
+        int status = XPooling29_top_CfgInitialize(&lyr18, lyr18_cfg);
         if (status != XST_SUCCESS) {
             xil_printf("Error initalising layer :18:\n\r");
         }
     }
 
     xil_printf("Initialising fpgaconvnet layer19\n\r");
-    lyr19_cfg = XConvolution28_squeeze_pooling29_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_CONVOLUTION28_SQUEEZE_POOLING29_DEVICE_ID);
+    lyr19_cfg = XPooling29_squeeze_relu3_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_POOLING29_SQUEEZE_RELU3_DEVICE_ID);
     if (lyr19_cfg) {
-        int status = XConvolution28_squeeze_pooling29_top_CfgInitialize(&lyr19, lyr19_cfg);
+        int status = XPooling29_squeeze_relu3_top_CfgInitialize(&lyr19, lyr19_cfg);
         if (status != XST_SUCCESS) {
             xil_printf("Error initalising layer :19:\n\r");
         }
     }
 
     xil_printf("Initialising fpgaconvnet layer20\n\r");
-    lyr20_cfg = XPooling29_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_POOLING29_DEVICE_ID);
+    lyr20_cfg = XRelu3_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_RELU3_DEVICE_ID);
     if (lyr20_cfg) {
-        int status = XPooling29_top_CfgInitialize(&lyr20, lyr20_cfg);
+        int status = XRelu3_top_CfgInitialize(&lyr20, lyr20_cfg);
         if (status != XST_SUCCESS) {
             xil_printf("Error initalising layer :20:\n\r");
         }
     }
 
     xil_printf("Initialising fpgaconvnet layer21\n\r");
-    lyr21_cfg = XPooling29_squeeze_relu3_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_POOLING29_SQUEEZE_RELU3_DEVICE_ID);
+    lyr21_cfg = XConvolution31_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_CONVOLUTION31_DEVICE_ID);
     if (lyr21_cfg) {
-        int status = XPooling29_squeeze_relu3_top_CfgInitialize(&lyr21, lyr21_cfg);
+        int status = XConvolution31_top_CfgInitialize(&lyr21, lyr21_cfg);
         if (status != XST_SUCCESS) {
             xil_printf("Error initalising layer :21:\n\r");
         }
     }
 
     xil_printf("Initialising fpgaconvnet layer22\n\r");
-    lyr22_cfg = XRelu3_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_RELU3_DEVICE_ID);
+    lyr22_cfg = XConvolution31_squeeze_pooling32_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_CONVOLUTION31_SQUEEZE_POOLING32_DEVICE_ID);
     if (lyr22_cfg) {
-        int status = XRelu3_top_CfgInitialize(&lyr22, lyr22_cfg);
+        int status = XConvolution31_squeeze_pooling32_top_CfgInitialize(&lyr22, lyr22_cfg);
         if (status != XST_SUCCESS) {
             xil_printf("Error initalising layer :22:\n\r");
         }
     }
 
     xil_printf("Initialising fpgaconvnet layer23\n\r");
-    lyr23_cfg = XConvolution31_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_CONVOLUTION31_DEVICE_ID);
+    lyr23_cfg = XPooling32_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_POOLING32_DEVICE_ID);
     if (lyr23_cfg) {
-        int status = XConvolution31_top_CfgInitialize(&lyr23, lyr23_cfg);
+        int status = XPooling32_top_CfgInitialize(&lyr23, lyr23_cfg);
         if (status != XST_SUCCESS) {
             xil_printf("Error initalising layer :23:\n\r");
         }
     }
 
     xil_printf("Initialising fpgaconvnet layer24\n\r");
-    lyr24_cfg = XConvolution31_squeeze_pooling32_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_CONVOLUTION31_SQUEEZE_POOLING32_DEVICE_ID);
+    lyr24_cfg = XRelu33_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_RELU33_DEVICE_ID);
     if (lyr24_cfg) {
-        int status = XConvolution31_squeeze_pooling32_top_CfgInitialize(&lyr24, lyr24_cfg);
+        int status = XRelu33_top_CfgInitialize(&lyr24, lyr24_cfg);
         if (status != XST_SUCCESS) {
             xil_printf("Error initalising layer :24:\n\r");
         }
     }
 
     xil_printf("Initialising fpgaconvnet layer25\n\r");
-    lyr25_cfg = XPooling32_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_POOLING32_DEVICE_ID);
+    lyr25_cfg = XRelu33_squeeze_innerproduct35_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_RELU33_SQUEEZE_INNERPRODUCT35_DEVICE_ID);
     if (lyr25_cfg) {
-        int status = XPooling32_top_CfgInitialize(&lyr25, lyr25_cfg);
+        int status = XRelu33_squeeze_innerproduct35_top_CfgInitialize(&lyr25, lyr25_cfg);
         if (status != XST_SUCCESS) {
             xil_printf("Error initalising layer :25:\n\r");
         }
     }
 
     xil_printf("Initialising fpgaconvnet layer26\n\r");
-    lyr26_cfg = XRelu33_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_RELU33_DEVICE_ID);
+    lyr26_cfg = XInnerproduct35_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_INNERPRODUCT35_DEVICE_ID);
     if (lyr26_cfg) {
-        int status = XRelu33_top_CfgInitialize(&lyr26, lyr26_cfg);
+        int status = XInnerproduct35_top_CfgInitialize(&lyr26, lyr26_cfg);
         if (status != XST_SUCCESS) {
             xil_printf("Error initalising layer :26:\n\r");
-        }
-    }
-
-    xil_printf("Initialising fpgaconvnet layer27\n\r");
-    lyr27_cfg = XRelu33_squeeze_innerproduct35_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_RELU33_SQUEEZE_INNERPRODUCT35_DEVICE_ID);
-    if (lyr27_cfg) {
-        int status = XRelu33_squeeze_innerproduct35_top_CfgInitialize(&lyr27, lyr27_cfg);
-        if (status != XST_SUCCESS) {
-            xil_printf("Error initalising layer :27:\n\r");
-        }
-    }
-
-    xil_printf("Initialising fpgaconvnet layer28\n\r");
-    lyr28_cfg = XInnerproduct35_top_LookupConfig(XPAR_BRN_SE_CONF_NETWORK_INNERPRODUCT35_DEVICE_ID);
-    if (lyr28_cfg) {
-        int status = XInnerproduct35_top_CfgInitialize(&lyr28, lyr28_cfg);
-        if (status != XST_SUCCESS) {
-            xil_printf("Error initalising layer :28:\n\r");
         }
     }
 
@@ -532,18 +532,18 @@ int main() {
     XInnerproduct2_squeeze_split1_top_Start(&lyr12);
     XSplit1_top_Start(&lyr13);
     XGreater24_top_Start(&lyr14);
-    XBrn_exit_top_Start(&lyr16);
-    XConvolution28_top_Start(&lyr18);
-    XConvolution28_squeeze_pooling29_top_Start(&lyr19);
-    XPooling29_top_Start(&lyr20);
-    XPooling29_squeeze_relu3_top_Start(&lyr21);
-    XRelu3_top_Start(&lyr22);
-    XConvolution31_top_Start(&lyr23);
-    XConvolution31_squeeze_pooling32_top_Start(&lyr24);
-    XPooling32_top_Start(&lyr25);
-    XRelu33_top_Start(&lyr26);
-    XRelu33_squeeze_innerproduct35_top_Start(&lyr27);
-    XInnerproduct35_top_Start(&lyr28);
+    XBrn_exit_top_Start(&lyr15);
+    XConvolution28_top_Start(&lyr16);
+    XConvolution28_squeeze_pooling29_top_Start(&lyr17);
+    XPooling29_top_Start(&lyr18);
+    XPooling29_squeeze_relu3_top_Start(&lyr19);
+    XRelu3_top_Start(&lyr20);
+    XConvolution31_top_Start(&lyr21);
+    XConvolution31_squeeze_pooling32_top_Start(&lyr22);
+    XPooling32_top_Start(&lyr23);
+    XRelu33_top_Start(&lyr24);
+    XRelu33_squeeze_innerproduct35_top_Start(&lyr25);
+    XInnerproduct35_top_Start(&lyr26);
 
     //flush buffer caches?
     Xil_DCacheFlushRange((u32)in_stream, SIZE_IN*sizeof(uint32_t));

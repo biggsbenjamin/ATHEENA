@@ -28,6 +28,10 @@ def gen_host_code(args, prt):
     layer_names = get_layers(args, prt)
     # add the top layer
     layer_names.insert(0, net)
+    # remove hls buffer layers
+    layer_names.remove('buffer0')
+    layer_names.remove('buffer1')
+
     hc_layers = []
     lyr_inc=""
     lyr_cfg=""
