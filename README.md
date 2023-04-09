@@ -1,5 +1,7 @@
 [![DOI](https://zenodo.org/badge/606085080.svg)](https://zenodo.org/badge/latestdoi/606085080)
 
+> **Note**: If above DOI is broken, [this one](https://doi.org/10.5281/zenodo.7809222) should be correct.
+
 # ATHEENA FCCM Artifacts
 
 Software and hardware artifacts for FCCM submission 2023
