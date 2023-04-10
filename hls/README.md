@@ -114,15 +114,19 @@ The final step requires some manual integration with the Vivado SDK and assumes 
 
 8. Insert SD card loaded with `i0.bin` file copied from `./hls/test/data/test/partitions/(network name)/partition_0/data/input0.bin`
 
-9. Run the FSBL project on the board and then program with the bitstream.
+9. Run the FSBL project on the board and then .
 
 ![run fsbl](./sdk_imgs/run_fsbl.png?raw=true)
 
-10. Run the host code (hello world) project. Debug mode may be required as there are some issues printing over UART.
+10. Program with the bitstream.
+
+![program device](./sdk_imgs/prohram_device.png?raw=true)
+
+11. Run the host code (hello world) project. Debug mode may be required as there are some issues printing over UART.
 
 ![run host code](./sdk_imgs/run_hellow.png?raw=true)
 
-11. Add a breakpoint as the code may not terminate gracefully.
+12. Add a breakpoint as the code may not terminate gracefully.
 
 ![add break point if needed](./sdk_imgs/brkpnt_if_needed.png?raw=true)
 
