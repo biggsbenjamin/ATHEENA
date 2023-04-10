@@ -2,9 +2,16 @@
 
 > **Note**: If above DOI is broken, [this one](https://doi.org/10.5281/zenodo.7809222) should be correct.
 
-# ATHEENA FCCM Artifacts
+# ATHEENA
+### A Toolflow for Hardware Early-Exit Network Automation (FCCM Artifacts)
 
-Software and hardware artifacts for FCCM submission 2023
+In our paper, we develop an FPGA-based accelerator toolflow targeting Deep Convolutional Early-Exit Neural Networks.
+Our work builds on the streaming architecture hardware in [fpgaConvNet](https://github.com/AlexMontgomerie/fpgaconvnet-hls).
+We leverage the probabilitic nature of the input-dependent Early-Exit network to scale 
+the resource allocation for different stages of the accelerator.
+
+This repository contains the software and hardware to generate accelerator designs
+for early-exit networks and the artifacts for the FCCM 2023 paper.
 
 There are three main artifacts:
 - Optimiser
@@ -108,7 +115,7 @@ Finally, there is a known [bug](http://svn.clifford.at/handicraft/2017/vivadobug
 #endif
 ```
 
-## Generating the Artifacts
+## Creating Accelerator Designs with ATHEENA
 
 To generate an optimised FPGA accelerator description for an Early-Exit network, follow the instructions in `optimiser/README.md`:
 
@@ -208,11 +215,11 @@ cd ../hls/test/partitions/
 
     g. Add the xilffs support to the host code (hello world) BSP using `system.mss > modify bsp`
 
-    h. Insert SD card loaded with `./hls/test/data/pc75/I0.BIN`
+    h. Insert SD card loaded with `i0.bin` file copied from `./hls/test/data/test/partitions/branchy_lenet_eg/partition_0/data/input0.bin`
 
-    i. Run the FSBL project on the board, upload the bitstream and then run the host code (hello world) project!
+    i. Run the FSBL project on the board, program with the bitstream, and then run the host code (hello world) project!
 
-### Included Artifacts
+### Reproducing the ATHEENA Paper Results
 
 As the HLS generation and Vivado Synthesis take a significant amount of time to run, I have included three ATHEENA hardware projects and designs from the paper have been included in this repository.
 
@@ -232,3 +239,19 @@ These folders contain:
 
 A copy of the hardware project with host code for each of these examples can be found and downloaded [here](https://drive.google.com/drive/folders/15Mc-UckojIFMW_R6GzN4vwPkShtwQtSw?usp=sharing)
 > **Note**: to unzip use `tar -xzvf a1_hw_artifact.tar.gz` and then opened using Vivado design suite and SDK.
+
+## Citation
+
+```Bibtex
+@inproceedings{bbiggs_ATHEENA_2023,
+    title = {{ATHEENA: A Toolflow for Hardware Early-Exit Network Automation}},
+    booktitle = {2023 IEEE 31st Annual International Symposium on Field-Programmable Custom Computing Machines (FCCM)},
+    author = {Benjamin Biggs and Christos-Savvas Bouganis and George A. Constantinides},
+    year = {2023},
+}
+```
+
+### Acknowledgements
+
+A huge thank you to our Artifact reviewer [Yizhao Gao](https://casr.eee.hku.hk/author/yizhao-gao/)
+for their advice and patience throughout the artifact review process!
