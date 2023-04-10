@@ -78,9 +78,9 @@ To install Vivado 2019.1:
 
 3. Add the following to your ~/.bashrc file:
 
-```
-export PATH=/tools/Xilinx/Vivado/2019.1/bin:$PATH
-export PATH=/tools/Xilinx/SDK/2019.1/bin:$PATH
+```Shell
+source /tools/Xilinx/Vivado/2019.1/settings64.sh
+source /tools/Xilinx/SDK/2019.1/settings64.sh
 export FPGACONVNET_ROOT=(path to repo)/ATHEENA_fccm_artifacts/hls
 export FPGACONVNET_HLS=(path to repo)/ATHEENA_fccm_artifacts/hls
 export FPGACONVNET_OPTIMISER=(path to repo)/ATHEENA_fccm_artifacts/optimiser
