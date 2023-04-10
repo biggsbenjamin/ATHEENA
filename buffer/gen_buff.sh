@@ -26,9 +26,9 @@ echo "Running buffer(s) generation for: $buff_list"
 
 for test_rsc in $buff_list ; do
 
-    mkdir ./impl/CONF_ee_${test_rsc}rsc-buffers/
-    mkdir ./impl/CONF_ee_${test_rsc}rsc-buffers/buffer0/
-    mkdir ./impl/CONF_ee_${test_rsc}rsc-buffers/buffer1/
+    mkdir -p ./impl/CONF_ee_${test_rsc}rsc-buffers/
+    mkdir -p ./impl/CONF_ee_${test_rsc}rsc-buffers/buffer0/
+    mkdir -p ./impl/CONF_ee_${test_rsc}rsc-buffers/buffer1/
 
     # buffer 0 gen - storing EE result
     # gnerate the verilog from the chisel template
