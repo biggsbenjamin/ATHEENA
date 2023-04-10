@@ -120,7 +120,7 @@ The final step requires some manual integration with the Vivado SDK and assumes 
 
 10. Program with the bitstream.
 
-![program device](./sdk_imgs/prohram_device.png?raw=true)
+![program device](./sdk_imgs/program_device.png?raw=true)
 
 11. Run the host code (hello world) project. Debug mode may be required as there are some issues printing over UART.
 
