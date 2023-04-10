@@ -218,6 +218,8 @@ cd ../hls/test/partitions/
     h. Insert SD card loaded with `i0.bin` file copied from `./hls/test/data/test/partitions/branchy_lenet_eg/partition_0/data/input0.bin`
 
     i. Run the FSBL project on the board, program with the bitstream, and then run the host code (hello world) project!
+   
+*For further details on running the hardware, see the hls [README](./hls/README.md).*
 
 ### Reproducing the ATHEENA Paper Results
 
