@@ -124,9 +124,13 @@ def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
 
     ### FOR LOOP FOR REPEATED OPTIMISATION ###
     #NOTE expose these to the expr top level
-    #rsc_limits = [0.1,0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    rsc_limits = [0.1,0.2,0.3,0.4,0.5,0.6]
-    full_sa_runs = 10
+    if is_branchy:
+        rsc_limits = [0.1,0.2,0.3,0.4,0.5,0.6]
+        full_sa_runs = 10
+    else:
+        rsc_limits = [0.1,0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+        full_sa_runs = 3
+
     print("Using Resource limits:{} for {} runs each.".format(rsc_limits,full_sa_runs))
 
     if auto_flag:
