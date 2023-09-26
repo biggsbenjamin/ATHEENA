@@ -64,8 +64,10 @@ class Buffer(Module):
         if coef == None:
             coef = self.rsc_coef
         # get the buffer buffer BRAM estimate
+        # NOTE using MINIMUM functioning buffer size
+        min_buff = 16
         buf_buffer_bram = bram_memory_resource_model(
-                int(self.rows*self.cols*self.channels), self.data_width)
+                int(self.rows*self.cols*self.channels*min_buff), self.data_width)
         # get the linear model estimation
         rsc = Module.rsc(self, coef)
         #print("linear model:",rsc['BRAM'], "mem rsc model", buf_buffer_bram)

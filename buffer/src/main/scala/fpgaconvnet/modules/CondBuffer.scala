@@ -65,7 +65,7 @@ class CondBufferFixed(
   // total number of values to be stored at min fm size
   val min_depth = min_fm*fm_size
   // only store up to the batch if smaller
-  val ram_depth = (min_depth+(10*fm_size)).min(batch_size*fm_size)
+  val ram_depth = (min_depth+(16*fm_size)).min(batch_size*fm_size)
 
   // input and output data buffers - default size 2
   val ip_buf = Module(new Queue(data_gen, 2, useSyncReadMem=true))

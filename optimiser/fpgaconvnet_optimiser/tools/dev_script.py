@@ -27,6 +27,17 @@ import matplotlib.lines as mlines
 import matplotlib.patches as mpat
 import json
 
+# for buffering and Q-ing
+import fpgaconvnet_optimiser.tools.intr_buffer as intr_buffer
+# TODO integrate into fcn opt as sub part
+from google.protobuf import json_format
+import fpgaconvnet_optimiser.proto.fpgaconvnet_pb2
+from fpgaconvnet_optimiser.tools.layer_enum \
+        import from_proto_layer_type
+
+#from fpgaconvnet_optimiser.tools.ee_stage_merger import _strip_outer
+import re
+
 ###########################################################
 ####################### optimiser expr ####################
 ###########################################################
@@ -242,6 +253,8 @@ def extract_rpt_data(data_dict, input_path, report_str=""):
                     repf_json = json.loads(open_repf.read())
                     #get dict of available resources for platform used
                     platform_dict = repf_json["platform"]["constraints"]
+                    # record frequency as well
+                    platform_dict["freq_mhz"] = repf_json["platform"]["freq"]
                     #get overall throughput
                     throughput = float(repf_json["network"]["performance"]["throughput"])
                     #get overall resource usage
@@ -264,55 +277,161 @@ def extract_rpt_data(data_dict, input_path, report_str=""):
     #need the platform stats
     return platform_dict
 
+# Report data combination - NOTE different to stage merger
 def combine_network_sections(args, ee1_data, eef_data,
-        platform_dict, baseline_data, eef_exit_fraction=0.5):
+        platform_dict, eef_exit_fraction=0.5,
+        prob_rt_deltas=[-0.05,0.05]):
     rsc_names = ["LUT","FF","BRAM","DSP"]
 
     combined_dict ={"report_name":[],"throughput":[],
                     "ee1_throughput":[], "eef_throughput":[],
-                    "eef_throughput_scaled":[],
+                    #"eef_throughput_scaled":[],
                     "resource_max":[], "limiting_resource":[],
-                    "LUT":[], "FF":[], "BRAM":[], "DSP":[]}
+                    "LUT":[], "FF":[], "BRAM":[], "DSP":[],
+                    "buff_min_delay":[],"q_depth":[],
+                    "throughput_rho":[],
+                    "throughput_upper":[],"throughput_lower":[]}
 
     ee1_len = len(ee1_data["report_name"])
     eef_len = len(eef_data["report_name"])
     for ee1_idx in range(ee1_len):
         for eef_idx in range(eef_len):
             ee1_thru = ee1_data["throughput"][ee1_idx]
-            eef_thru = float(eef_data["throughput"][eef_idx])/eef_exit_fraction
+            #eef_thru = float(eef_data["throughput"][eef_idx])/eef_exit_fraction
+            eef_thru_raw = eef_data["throughput"][eef_idx]
             #pair up each
             combined_dict["report_name"].append(
                     (ee1_data["report_name"][ee1_idx],eef_data["report_name"][eef_idx]))
             #raw throughputs
             combined_dict["ee1_throughput"].append(ee1_thru)
             combined_dict["eef_throughput"].append(eef_data["throughput"][eef_idx])
-            combined_dict["eef_throughput_scaled"].append(eef_thru)
-            #minimum of the exit throughputs (limiting thr)
-            combined_dict["throughput"].append(min(ee1_thru, eef_thru))
             #for getting the limiting rsc
             actual_rsc = []
+            rsc_sums = {"LUT":{"pc":0, "val":0},
+                        "FF":{"pc":0, "val":0},
+                        "BRAM":{"pc":0, "val":0},
+                        "DSP":{"pc":0, "val":0}}
             for rn in rsc_names:
+                # get rsc sum
                 rsc_sum = ee1_data[rn][ee1_idx]+eef_data[rn][eef_idx]
+                # store numerical value of rsc temporaily
+                rsc_sums[rn]["val"] = rsc_sum
                 res_percent = rsc_sum/float(platform_dict[rn])
+                rsc_sums[rn]["pc"] = res_percent
                 combined_dict[rn].append(res_percent)
                 actual_rsc.append([res_percent,rn])
-            idx_max = max(range(len(actual_rsc)), key=actual_rsc.__getitem__)
-            combined_dict["resource_max"].append(actual_rsc[idx_max][0])
-            combined_dict["limiting_resource"].append(actual_rsc[idx_max][1])
+            idx_max = max(range(len(actual_rsc)),
+                          key=actual_rsc.__getitem__)
+            # get limiting resource
+            rsc_max_name = max(rsc_sums, key=lambda x: rsc_sums[x]["pc"])
+            if actual_rsc[idx_max][1] != rsc_max_name:
+                raise KeyError(f"max rsc doesnt match {rsc_max_name}, {actual_rsc[idx_max][1]}")
+            rsc_max_pc = rsc_sums[rsc_max_name]["pc"]
+            rsc_max_val = rsc_sums[rsc_max_name]["val"]
+            bram_usage = rsc_sums["BRAM"]["val"]
+
+            # store max limiting rsc, shouldn't change after bram use
+            combined_dict["resource_max"].append(rsc_max_pc)
+            combined_dict["limiting_resource"].append(rsc_max_name)
+
+            q_depth=1
+            # If BRAM is the limiting resource,
+            # use minimum buffer size(accounted for)
+            if rsc_max_name != "BRAM":
+                # get bram allowance
+                bram_allw = intr_buffer.get_bram_allowance(
+                    rsc_max_pc,bram_usage,platform_dict["BRAM"])
+
+                ### get the input shape of the buffer layer
+                # convert report name to partition name
+                #outer_fldr = _strip_outer(
+                #    ee1_data["report_name"][ee1_idx], "'", "'")
+                outer_fldr = ee1_data["report_name"][ee1_idx]
+                # remove 'report_'
+                ptn_file = outer_fldr[7:]
+                # finds the resource lim specified in the file name
+                rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)",ptn_file).group()
+                path = os.path.join(args.input_path,"post_optim-rsc{}p/{}".format(rsc_lim,ptn_file))
+
+                # load partition information
+                ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
+                with open(path,'r') as f:
+                    json_format.Parse(f.read(), ee1)
+                # get 'buffer1' layer (intermediate buffer layer)
+                intr_buff=None
+                ee1_ptn = ee1.partition[0]
+                for lyr in ee1_ptn.layers:
+                    lyr_type = from_proto_layer_type(lyr.type)
+                    if lyr.streams_out[0].name == "out":
+                        if lyr_type == LAYER_TYPE.Buffer:
+                            #print("found buffer to late stage")
+                            intr_buff = lyr
+                # set input shape of intermediate buffer
+                input_shape=[intr_buff.parameters.rows_in,
+                             intr_buff.parameters.cols_in,
+                             intr_buff.parameters.channels_in,
+                             intr_buff.parameters.coarse_in]
+                batch_size = int(ee1_ptn.batch_size)
+                # get new bram usage and q_depth
+                bram, min_delay, q_depth = intr_buffer.get_buffer_size(
+                    input_shape,batch_size,bram_allw)
+                # TODO min_delay needs to be added to partition somehow
+                combined_dict["buff_min_delay"] = min_delay
+                # update combined bram usage
+                # NOTE ADD ME BACK
+                combined_dict["BRAM"][-1] = (bram_usage+bram)/float(platform_dict[rn])
+            # state service time metrics for stage 2
+            # TODO scale to multiple stages
+            # compute the new throughput for the comb stages
+            adj_thru, rho=intr_buffer.get_throughput_pred(
+                ee1_thru,eef_thru_raw,eef_exit_fraction,
+                platform_dict["freq_mhz"],q_depth)
+
+            ### NOTE acclerator throughput under inf buffer assumption!
+            #minimum of the exit throughputs (limiting thr)
+            #combined_dict["throughput"].append(min(ee1_thru, (float(eef_data["throughput"][eef_idx])/eef_exit_fraction )))
+            ### NOTE acclerator throughput under inf buffer assumption!
+
+            # store predicted throughput
+            # NOTE ADD ME BACK
+            combined_dict["throughput"].append(adj_thru)
+            # store traffic intensity
+            combined_dict["throughput_rho"].append(rho)
+            # store depth for runtime delta calc
+            combined_dict["q_depth"].append(q_depth)
+            # calc worst case throughput (based on run time delta)
+            thru_bnd,_=intr_buffer.get_throughput_pred(
+                ee1_thru,eef_thru_raw,
+                eef_exit_fraction+max(prob_rt_deltas),
+                platform_dict["freq_mhz"],q_depth)
+            # NOTE REMOVE ME
+            #thru_bnd=min(ee1_thru, (float(eef_data["throughput"][eef_idx])/(eef_exit_fraction+max(prob_rt_deltas)) ))
+            combined_dict["throughput_lower"].append(thru_bnd)
+            # calc best case throughput (based on run time delta)
+            thru_bnd,_=intr_buffer.get_throughput_pred(
+                ee1_thru,eef_thru_raw,
+                eef_exit_fraction+min(prob_rt_deltas),
+                platform_dict["freq_mhz"],q_depth)
+            # NOTE REMOVE ME
+            #thru_bnd=min(ee1_thru, (float(eef_data["throughput"][eef_idx])/(eef_exit_fraction+min(prob_rt_deltas)) ))
+            combined_dict["throughput_upper"].append(thru_bnd)
+
     #change to numpy arrays
     for key in combined_dict.keys():
         combined_dict[key] = np.array(combined_dict[key])
     return combined_dict
 
-def pareto_front(data_dict, resource_string):
+# 2D pareto frontier generation
+def pareto_front(data_dict,xkey,ykey="throughput"):
     #generate list of indices for pareto front
     #get list of throughputs and resource(s)
-    point_len = len(data_dict["throughput"])
+    # TODO make throughput key a parameter
+    point_len = len(data_dict[ykey])
     #construct numpy array of throughput and resource max
     np_data = np.empty((point_len,2))
     for i,(thr,rsc) in enumerate(
-            zip(data_dict["throughput"],
-                data_dict[resource_string])):
+            zip(data_dict[ykey],
+                data_dict[xkey])):
         np_data[i][0] = 1/float(thr)
         np_data[i][1] = rsc
     #print("PARETO\n",np_data)
@@ -333,8 +452,8 @@ def pareto_front(data_dict, resource_string):
     #print("is eff\n",is_efficient)
 
     #sort along the pareto front
-    sort_xy = np.lexsort((data_dict['resource_max'][is_efficient_mask],
-                            data_dict["throughput"][is_efficient_mask]))
+    sort_xy = np.lexsort((data_dict[xkey][is_efficient_mask],
+                            data_dict[ykey][is_efficient_mask]))
 
     return is_efficient, is_efficient_mask, sort_xy
 
@@ -472,15 +591,18 @@ def gen_graph(args):
         #eef_exit_fraction_l = [0.25,0.34, 0.37,0.5]
         eef_exit_fraction_l = []
         # FIXME only for 2 stage networks
-        eef_exit_fraction_l.append(1.0-float(args.profiled_probability))
+        eef_exit_fraction_l.append(float(args.profiled_probability))
 
         subop_fraction = [-0.05,0.05] #lines representing suboptimal EEF %
         for eef_frac in eef_exit_fraction_l:
             if ee_flag:
-                combined_data = combine_network_sections(args, ee1_data, eef_data,
-                    platform_dict, baseline_data, eef_exit_fraction=eef_frac)
+                combined_data = combine_network_sections(
+                    args,ee1_data,eef_data,platform_dict,
+                    eef_exit_fraction=eef_frac,
+                    prob_rt_deltas=subop_fraction)
                 #gen pareto front for combined data
-                _, pareto_comb_mask,srt_comb_idx = pareto_front(combined_data, "resource_max")
+                _, pareto_comb_mask,srt_comb_idx = \
+                    pareto_front(combined_data, "resource_max","throughput")
             #print graph of combined vs baseline vs ee1
             rsc_str = "resource_max"
             fig = plt.figure()
@@ -503,16 +625,17 @@ def gen_graph(args):
             #plot the pareto front with a line
             ax.plot(base_x,base_y,c=base_col,label=f'Baseline')
             #plot the points and limiting resource for baseline
-            for rsc,mrkr in rsc_markers.items():
-                mask = pareto_base_mask & (baseline_data["limiting_resource"]==rsc)
-                #generating csv for each resource
-                rsc_x=baseline_data[rsc_str][mask]
-                rsc_y=baseline_data["throughput"][mask]
-                rsc_xy=np.vstack((rsc_x,rsc_y)).T
-                np.savetxt(os.path.join(args.output_path,
-                            'baseline_{}.csv'.format(rsc)),
-                        rsc_xy,delimiter=',')
-                ax.scatter(rsc_x, rsc_y, c=base_col,marker=mrkr)#,label=f'{rsc}s')
+            if baseline_flag:
+                for rsc,mrkr in rsc_markers.items():
+                    mask = pareto_base_mask & (baseline_data["limiting_resource"]==rsc)
+                    #generating csv for each resource
+                    rsc_x=baseline_data[rsc_str][mask]
+                    rsc_y=baseline_data["throughput"][mask]
+                    rsc_xy=np.vstack((rsc_x,rsc_y)).T
+                    np.savetxt(os.path.join(args.output_path,
+                                'baseline_{}.csv'.format(rsc)),
+                            rsc_xy,delimiter=',')
+                    ax.scatter(rsc_x, rsc_y, c=base_col,marker=mrkr)#,label=f'{rsc}s')
 
 
             if ee_flag:
@@ -530,7 +653,7 @@ def gen_graph(args):
                 #        f.write("xy:"+str(rsc_thr)+"\n")
 
                 #comb_rn = comb_rn.T
-                with open(os.path.join(args.output_path,'combined_rpt_eefrac{}.txt'.format(int((1-eef_frac)*100))), 'w') as f:
+                with open(os.path.join(args.output_path,'combined_rpt_p{}.txt'.format(round((eef_frac)*100))), 'w') as f:
                     f.write("###### COMBINED REPORT NAMES #####\n")
                     for rn,rsc_thr in zip(comb_rn, comb_xy):
                         f.write(f"report name:{rn} \n")
@@ -538,8 +661,9 @@ def gen_graph(args):
 
                 comb_ee1=combined_data["ee1_throughput"][pareto_comb_mask][srt_comb_idx]
                 comb_eef=combined_data["eef_throughput"][pareto_comb_mask][srt_comb_idx]
-                comb_eefsc=combined_data["eef_throughput_scaled"][pareto_comb_mask][srt_comb_idx]
-                comb_all = np.vstack((comb_x,comb_y, comb_ee1,comb_eef,comb_eefsc)).T
+                # changing scaled thrupt for traffic intensity
+                comb_rho=combined_data["throughput_rho"][pareto_comb_mask][srt_comb_idx]
+                comb_all = np.vstack((comb_x,comb_y, comb_ee1,comb_eef,comb_rho)).T
 
                 #NOTE can't put strings in numpy array for savetxt
                 #comb_all_proto2 = comb_all_proto.astype(str)
@@ -549,16 +673,16 @@ def gen_graph(args):
 
                 #save to csv for latex pgfplots
                 np.savetxt(os.path.join(args.output_path,
-                            'Opt_{}_curve.csv'.format(str(int(100*(1-eef_frac) ))) ),
+                            'Opt_{}_curve.csv'.format(str(int(100*eef_frac ))) ),
                         comb_xy,delimiter=',')
 
                 np.savetxt(os.path.join(args.output_path,
-                            'INVESTIGATION_Opt_{}_curve.csv'.format(str(int(100*(1-eef_frac) ))) ),
+                            'INVESTIGATION_Opt_{}_curve.csv'.format(str(int(100*eef_frac ))) ),
                         comb_all,delimiter=',')
 
                 #plot the pareto front with a line
                 comb_col = "#9a57FF"
-                ax.plot(comb_x,comb_y,c=comb_col,label='Opt ({:.1f}%)'.format(100*(1-eef_frac) ))
+                ax.plot(comb_x,comb_y,c=comb_col,label='Opt ({:.1f}%)'.format(100*eef_frac ))
                 #plot the points and limiting resource for combined exits
                 for rsc,mrkr in rsc_markers.items():
                     mask = pareto_comb_mask & (combined_data["limiting_resource"]==rsc)
@@ -567,26 +691,35 @@ def gen_graph(args):
                     rsc_y=combined_data["throughput"][mask]
                     rsc_xy=np.vstack((rsc_x,rsc_y)).T
                     np.savetxt(os.path.join(args.output_path,
-                                'Opt_{}_{}.csv'.format(str(int(100*(1-eef_frac) )),rsc )),
+                                'Opt_{}_{}.csv'.format(str(int(100*eef_frac )),rsc )),
                             rsc_xy,delimiter=',')
                     #matplotlibbing
                     ax.scatter(rsc_x, rsc_y,c=comb_col,marker=mrkr)#,label=f'{rsc}s')
 
                 for subop_frac,ls in zip(subop_fraction,['dashed','dotted']):
-                    scaling = eef_frac/(eef_frac+subop_frac)
+                    #scaling = eef_frac/(eef_frac+subop_frac)
                     #sort out the scaled throughput
-                    bounded_thru = np.minimum(combined_data['ee1_throughput'][pareto_comb_mask][srt_comb_idx],
-                        combined_data['eef_throughput_scaled'][pareto_comb_mask][srt_comb_idx]*scaling)
+                    #bounded_thru = np.minimum(
+                  #combined_data['ee1_throughput'][pareto_comb_mask][srt_comb_idx],
+                      #combined_data['throughput_upper'][pareto_comb_mask][srt_comb_idx]*scaling)
+
+                    # pick correct precalc-ed throughput boundary
+                    if subop_frac == min(subop_fraction):
+                        bounded_thru = combined_data["throughput_upper"][pareto_comb_mask][srt_comb_idx]
+                    else:
+                        bounded_thru = combined_data["throughput_lower"][pareto_comb_mask][srt_comb_idx]
+
+
                     bound_xy = np.vstack((comb_x,bounded_thru)).T
                     #save to csv for latex pgfplots
                     np.savetxt(os.path.join(args.output_path,
                                 'Opt_{}_bound_{}.csv'.format(
-                                    str(int(100*(1-eef_frac))),
-                                    str(int(100*((1-(eef_frac+subop_frac) ) )))) ),
+                                    str(round(100*eef_frac)),
+                                    str(round(100*((eef_frac+subop_frac) )))) ),
                             bound_xy,delimiter=',')
                     #plot the pareto front with a line
                     ax.plot(comb_x,bounded_thru, c=comb_col, linestyle=ls,
-                            label='{:.1f}%'.format(100*((1-(eef_frac+subop_frac)) )) ) #change the names
+                            label='{:.1f}%'.format(100*((eef_frac+subop_frac) )) ) #change the names
                     #don't worry about the limiting resource fo the suboptimal plot
 
             #fix the title of the plot
@@ -615,9 +748,9 @@ def gen_graph(args):
                 labels.append(f'{rsc}s')
             ax.legend(handles,labels, loc='center left', bbox_to_anchor=(1.01, 0.5))
             #save plot
-            fig.savefig(os.path.join(args.output_path,"plot_{}_{}_{}eepr.pdf".format(
-                args.save_name, rsc_str, str(int(100*(1-eef_frac) )))))
-            print("Saved Combined {} Graph. EE Frac: {}".format(rsc_str,str(100*(1-eef_frac) )))
+            fig.savefig(os.path.join(args.output_path,"plot_{}_{}_p{}.pdf".format(
+                args.save_name, rsc_str, str(round(100*eef_frac )))))
+            print("Saved Combined {} Graph. Late Stage Frac: {}".format(rsc_str,str(100*eef_frac )))
 
 ###########################################################
 #################        main         #####################
@@ -650,7 +783,7 @@ def main():
     parser.add_argument('-bi', '--baseline_input_path', metavar='PATH',
             help='folder location for baseline report JSONs')
     parser.add_argument('-pr','--profiled_probability', type=float, default=0.5, required=False,
-            help='Probability of samples that will early-exit. E.g. 0.75 means 75% of values will early-exit')
+            help='Probability of samples that will use the late stage. E.g. 0.25 means 25% of values will utilise late stage, 75% early-exit. (p value from paper)')
 
     args = parser.parse_args()
 
