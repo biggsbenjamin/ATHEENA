@@ -381,3 +381,54 @@ def exit_split(self, partition_index):
     assert(node_num == new_node_num, "ERROR: number of nodes has changed on exit split")
 
     self.update_partitions()
+
+"""
+(Temporary) Function to walk the intermediate feature map buffer
+along the backbone to further explore trade-offs.
+"""
+def buffer_shift(self, partition_index):
+    # fragment partition into individual partitions
+    main_partition = self.partitions[partition_index]
+    node_num = len(main_partition.graph.nodes)
+
+    # finde the buffer layers
+    node_list = graphs.ordered_node_list(main_partition.graph)
+    buffer_list = []
+    for node in node_list:
+        if main_partition.graph.nodes[node]['type'] in [LAYER_TYPE.Buffer]: #keep buffer on EE side
+            buffer_list.append(node)
+    print("buffer list:", buffer_list)
+
+    # work out which one is the intermediate buffer - buffer1 (TWO STAGE ONLY FIXME)
+    for b in buffer_list:
+        if main_partition.graph.nodes[b]['name'] == 'buffer1':
+            node=b
+
+    print(node)
+    # get predecessor
+    predec = graphs.get_prev_nodes(main_partition.graph, node)
+    if len(predec) > 1:
+        raise Exception("Multiple predecessors not supported")
+
+    # get successor
+    success = graphs.get_next_nodes(main_partition.graph, node)
+    if len(success) > 1:
+        raise Exception("Multiple successors not supported")
+
+    # predecessor should be split layer the first go round
+    # successor conv layer
+
+    # delete the buffer layer - the IO dimensions should still match
+    # insert a buffer AFTER the successor
+    # set the dimensions using successor output
+    # set ctrledges or whatever using buffer node info (doesn't matter,not used)
+
+    return
+
+# in the dev script, save this new version and repeat the process
+# NOTE need to do deep cpy in between buffer shift
+# SOME THEORY - only impact things when after conv, pool, linear (downsamp)
+# only bother doing exit splits for those layers
+# make name smth to do with buffer prev layer?
+
+# work out how many versions there will be for my brn se, try and gen some plots

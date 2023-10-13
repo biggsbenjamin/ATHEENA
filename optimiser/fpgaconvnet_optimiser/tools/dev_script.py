@@ -34,6 +34,7 @@ from google.protobuf import json_format
 import fpgaconvnet_optimiser.proto.fpgaconvnet_pb2
 from fpgaconvnet_optimiser.tools.layer_enum \
         import from_proto_layer_type
+import math
 
 #from fpgaconvnet_optimiser.tools.ee_stage_merger import _strip_outer
 import re
@@ -110,6 +111,10 @@ def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
         # resetting name before optimisation
         net.name = old_name
 
+    ### FIXME remove when regenerating results ###
+    print("Doing some dev on buffer placement... ignore rest of opt brn")
+    return
+
     auto_flag=True #carry out lots of runs at different rsc if true
     #if not auto_flag: #one run on partitions at optimiser_example specified rsc usage
     #    net.rsc_allocation = 0.75 #forcing low rsc usage for debug
@@ -139,7 +144,7 @@ def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
         rsc_limits = [0.1,0.2,0.3,0.4,0.5,0.6]
         full_sa_runs = 10
     else:
-        rsc_limits = [0.1,0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+        rsc_limits = [0.1,0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1]
         full_sa_runs = 3
 
     print("Using Resource limits:{} for {} runs each.".format(rsc_limits,full_sa_runs))
@@ -166,15 +171,17 @@ def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
                         split.rsc_allocation = rsc
                         print("\nRunning split: {}".format(split.name))
 
-                        # NOTE implements eef only when wrapped around pass flag cond
-                        #if "eef" in split.name:
-                            #print("WARNING: EEF ONLY")
-                        # NOTE implements eef only when wrapped around pass flag cond
+                        # FIXME input should be able to have up to PORTnum
+                        avoid_input_crs=True
+                        if "eef" in split.name:
+                            # eef should be able to have any coarse input
+                            avoid_input_crs=False
 
-                        pass_flag = split.run_optimiser() #true = pass
+                        pass_flag = split.run_optimiser(
+                            avoid_input_crs=avoid_input_crs)
                         if pass_flag:
                             # update all partitions
-                            split.update_partitions()
+                            split.update_partitions(avoid_input_crs=avoid_input_crs)
                             #create folder to store results - percentage/iteration
                             post_optim_path = os.path.join(args.output_path,
                                     "post_optim-rsc{}p".format(int(rsc*100)))
@@ -306,7 +313,6 @@ def combine_network_sections(args, ee1_data, eef_data,
             combined_dict["ee1_throughput"].append(ee1_thru)
             combined_dict["eef_throughput"].append(eef_data["throughput"][eef_idx])
             #for getting the limiting rsc
-            actual_rsc = []
             rsc_sums = {"LUT":{"pc":0, "val":0},
                         "FF":{"pc":0, "val":0},
                         "BRAM":{"pc":0, "val":0},
@@ -319,13 +325,12 @@ def combine_network_sections(args, ee1_data, eef_data,
                 res_percent = rsc_sum/float(platform_dict[rn])
                 rsc_sums[rn]["pc"] = res_percent
                 combined_dict[rn].append(res_percent)
-                actual_rsc.append([res_percent,rn])
-            idx_max = max(range(len(actual_rsc)),
-                          key=actual_rsc.__getitem__)
             # get limiting resource
+            # NOTE - only selects ONE max (if there are more then might trigger BRAM calc)
             rsc_max_name = max(rsc_sums, key=lambda x: rsc_sums[x]["pc"])
-            if actual_rsc[idx_max][1] != rsc_max_name:
-                raise KeyError(f"max rsc doesnt match {rsc_max_name}, {actual_rsc[idx_max][1]}")
+            # double check if bram is limiting - TODO see if the difference is under 1 intrbuff size
+            if math.isclose(rsc_sums["BRAM"]["pc"], rsc_sums[rsc_max_name]["pc"], abs_tol=1e-12):
+                rsc_max_name = "BRAM"
             rsc_max_pc = rsc_sums[rsc_max_name]["pc"]
             rsc_max_val = rsc_sums[rsc_max_name]["val"]
             bram_usage = rsc_sums["BRAM"]["val"]
@@ -375,6 +380,9 @@ def combine_network_sections(args, ee1_data, eef_data,
                 # get new bram usage and q_depth
                 bram, min_delay, q_depth = intr_buffer.get_buffer_size(
                     input_shape,batch_size,bram_allw)
+                # NOTE if some rsc AND bram are max limiting rsc then q depth might be 0
+                if q_depth == 0:
+                    q_depth=1 # set to 1 because of default buffer sizing
                 # TODO min_delay needs to be added to partition somehow
                 combined_dict["buff_min_delay"] = min_delay
                 # update combined bram usage

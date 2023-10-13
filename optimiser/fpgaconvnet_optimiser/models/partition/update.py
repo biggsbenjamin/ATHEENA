@@ -3,7 +3,7 @@ import copy
 import fpgaconvnet_optimiser.tools.graphs as graphs
 from fpgaconvnet_optimiser.tools.layer_enum import LAYER_TYPE, from_onnx_op_type
 
-def update(self):
+def update(self, avoid_input_crs=True):
 
     ## remove auxiliary layers
     self.remove_squeeze()
@@ -20,8 +20,12 @@ def update(self):
     streams_in_max = min(self.max_streams_in, self.graph.nodes[input_node]["hw"].streams_in())
     streams_out_max = min(self.max_streams_out, self.graph.nodes[output_node]["hw"].streams_out())
 
-    # choose the max of all the valid stream values, below the max
-    self.streams_in = max([ s for s in streams_in_valid if s <= streams_in_max ])
+    if avoid_input_crs: # do normal fpgaconvnet behaviour and match the ports
+        # choose the max of all the valid stream values, below the max
+        self.streams_in = max([ s for s in streams_in_valid if s <= streams_in_max ])
+    else:
+        print(f"allowing crs input")
+        self.streams_in = self.graph.nodes[input_node]["hw"].streams_in()
     self.streams_out = max([ s for s in streams_out_valid if s <= streams_out_max ])
 
     ## add auxiliary layers

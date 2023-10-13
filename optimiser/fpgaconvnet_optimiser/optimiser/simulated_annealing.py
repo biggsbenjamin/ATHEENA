@@ -76,7 +76,7 @@ class SimulatedAnnealing(Optimiser):
         # print the current status of the optimiser
         print(f"{self.T:.5e}\t{abs(self.get_cost()):.5e}\t\t  {int(BRAM):4d} | {int(DSP):4d} | {int(LUT):6d} | {int(FF):6d}",end=return_char)
 
-    def run_optimiser(self, log=True):
+    def run_optimiser(self, log=True, avoid_input_crs=True):
         #print resource constraint
         print("Resource fraction:",self.rsc_allocation)
         print("Transform list",self.transforms)
@@ -113,7 +113,7 @@ class SimulatedAnnealing(Optimiser):
 
                 #FIXME FAILURE TO APPLY TRANSFORMS - weights reloading fails ofc
 
-                self.apply_transform(transform,partition_index)
+                self.apply_transform(transform,partition_index,avoid_input_crs=avoid_input_crs)
                 self.update_partitions()
 
                 try:
@@ -175,7 +175,7 @@ class SimulatedAnnealing(Optimiser):
 
                 ## Apply the transform
                 logging.info(f"applying {transform} to {node} in partition {partition_index}")
-                self.apply_transform(transform, partition_index, node)
+                self.apply_transform(transform, partition_index, node,avoid_input_crs=avoid_input_crs)
 
                 ## Update partitions
                 self.update_partitions()

@@ -18,31 +18,31 @@ def get_buffer_size(input_shape,batch_size,
                     bram_available,
                     zbrd_flag=True):
     # should deduct much smaller results buffer
-    # FIXME assuming coarse factor 1, this complicates above calc
-    if input_shape[3] != 1:
-        raise NotImplementedError(f"Note implemented for crs > 1")
-
     # input_shape is the rows,cols,chans of intermediate feature map
     # batch_size - for small networks might be better to jsut max out
     # bram_used - list of stages and their predicted bram utilisaiton
     # bram_total - from the board info, how much total available (under constraints)
     # should have flag for board type (older boards require nearset pow2)
-    fm_size = input_shape[0]*input_shape[1]*input_shape[2]
+    fm_size = input_shape[0]*input_shape[1]*input_shape[2] / input_shape[3]
     if zbrd_flag:
-        max_bram_size = 2**math.floor(math.log2(bram_available))
+        max_bram_size = 2**math.floor(math.log2(bram_available/float(input_shape[3])))
     else:
-        max_bram_size = bram_available
+        max_bram_size = math.floor(bram_available/float(input_shape[3]))
     # NOTE assumes 16bits data width
     q_depth = math.floor((max_bram_size*1024)/fm_size)
     # recalc additional bram used
+    # calcs value for 1 instance (coarse-1) remaining
     bram = 2**math.ceil(math.log2((q_depth*fm_size)/1024))
     # FIXME total bram consumption will be slightly larger
     # IO fifos not included in model, smaller buffer not factored in
     if bram >= bram_available: #max_bram_size:
-        raise ValueError(f"BRAM calc mismatch. bram:{bram}, max:{max_bram_size}")
+        q_depth-=1
+        bram = 2**math.ceil(math.log2((q_depth*fm_size)/1024))
+        #raise ValueError(f"BRAM calc mismatch. bram:{bram}, max:{max_bram_size}")
     # calc min delay (include 16 min fms)
     min_delay = fm_size*q_depth
-    return bram, min_delay, q_depth
+    # re-scale the bram use by coarse factor (separate buffers)
+    return bram*input_shape[3], min_delay, q_depth
 
 ### MG1K Smith approximation of throughput dependent on q size
 def get_svt_coef(svt_ls,svt_probs):

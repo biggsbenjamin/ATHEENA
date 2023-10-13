@@ -3,7 +3,7 @@ import copy
 import fpgaconvnet_optimiser.tools.graphs as graphs
 from fpgaconvnet_optimiser.transforms.helper import get_factors
 
-def update_partitions(self):
+def update_partitions(self, avoid_input_crs=True):
 
     # remove all auxiliary layers
     for partition_index in range(len(self.partitions)):
@@ -22,7 +22,7 @@ def update_partitions(self):
     for partition_index in range(len(self.partitions)):
 
         ## update the partitions
-        self.partitions[partition_index].update()
+        self.partitions[partition_index].update(avoid_input_crs)
         ## update batch size for partitions
         self.partitions[partition_index].batch_size = self.batch_size
 #=======
