@@ -631,7 +631,7 @@ def gen_graph(args):
 
             base_col='red'
             #plot the pareto front with a line
-            ax.plot(base_x,base_y,c=base_col,label=f'Baseline')
+            ax.plot(base_x,base_y,c=base_col,label=f'Baseline',drawstyle='steps-post')
             #plot the points and limiting resource for baseline
             if baseline_flag:
                 for rsc,mrkr in rsc_markers.items():
@@ -690,7 +690,8 @@ def gen_graph(args):
 
                 #plot the pareto front with a line
                 comb_col = "#9a57FF"
-                ax.plot(comb_x,comb_y,c=comb_col,label='Opt ({:.1f}%)'.format(100*eef_frac ))
+                ax.plot(comb_x,comb_y,c=comb_col,drawstyle='steps-post',
+                        label='Opt ({:.1f}%)'.format(100*eef_frac ))
                 #plot the points and limiting resource for combined exits
                 for rsc,mrkr in rsc_markers.items():
                     mask = pareto_comb_mask & (combined_data["limiting_resource"]==rsc)
@@ -726,7 +727,7 @@ def gen_graph(args):
                                     str(round(100*((eef_frac+subop_frac) )))) ),
                             bound_xy,delimiter=',')
                     #plot the pareto front with a line
-                    ax.plot(comb_x,bounded_thru, c=comb_col, linestyle=ls,
+                    ax.plot(comb_x,bounded_thru, c=comb_col, drawstyle='steps-post',linestyle=ls,
                             label='{:.1f}%'.format(100*((eef_frac+subop_frac) )) ) #change the names
                     #don't worry about the limiting resource fo the suboptimal plot
 
