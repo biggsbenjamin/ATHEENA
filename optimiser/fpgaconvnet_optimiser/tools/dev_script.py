@@ -39,6 +39,9 @@ import math
 #from fpgaconvnet_optimiser.tools.ee_stage_merger import _strip_outer
 import re
 
+#For getting nicer results
+import pandas as pd
+
 ###########################################################
 ####################### optimiser expr ####################
 ###########################################################
@@ -342,6 +345,7 @@ def combine_network_sections(args, ee1_data, eef_data,
             q_depth=1
             # If BRAM is the limiting resource,
             # use minimum buffer size(accounted for)
+            min_delay=0
             if rsc_max_name != "BRAM":
                 # get bram allowance
                 bram_allw = intr_buffer.get_bram_allowance(
@@ -383,17 +387,18 @@ def combine_network_sections(args, ee1_data, eef_data,
                 # NOTE if some rsc AND bram are max limiting rsc then q depth might be 0
                 if q_depth == 0:
                     q_depth=1 # set to 1 because of default buffer sizing
-                # TODO min_delay needs to be added to partition somehow
-                combined_dict["buff_min_delay"] = min_delay
                 # update combined bram usage
                 # NOTE ADD ME BACK
-                combined_dict["BRAM"][-1] = (bram_usage+bram)/float(platform_dict[rn])
+                combined_dict["BRAM"][-1] = (bram_usage+bram)/float(platform_dict["BRAM"])
             # state service time metrics for stage 2
             # TODO scale to multiple stages
             # compute the new throughput for the comb stages
             adj_thru, rho=intr_buffer.get_throughput_pred(
                 ee1_thru,eef_thru_raw,eef_exit_fraction,
                 platform_dict["freq_mhz"],q_depth)
+
+            # TODO min_delay needs to be added to partition somehow
+            combined_dict["buff_min_delay"].append(min_delay)
 
             ### NOTE acclerator throughput under inf buffer assumption!
             #minimum of the exit throughputs (limiting thr)
@@ -647,6 +652,17 @@ def gen_graph(args):
 
 
             if ee_flag:
+                #tmp_dict = {}
+                #for key in combined_data.keys():
+                #    tmp_dict[key] = combined_data[key][pareto_comb_mask][srt_comb_idx]
+                ## dataframe of pareto optimal points
+                #print(tmp_dict)
+
+                comb_df = pd.DataFrame.from_dict({key:list(combined_data[key][pareto_comb_mask][srt_comb_idx]) for key in combined_data.keys()})
+                # set csv path to output folder
+                csv_path = os.path.join(args.output_path,'combined_rpt_p{}.csv'.format(round((eef_frac)*100)))
+                # send the df to a csv
+                comb_df.to_csv(csv_path)
                 #combined network data
                 comb_x=combined_data['resource_max'][pareto_comb_mask][srt_comb_idx]
                 comb_y=combined_data['throughput'][pareto_comb_mask][srt_comb_idx]
@@ -692,6 +708,7 @@ def gen_graph(args):
                 comb_col = "#9a57FF"
                 ax.plot(comb_x,comb_y,c=comb_col,drawstyle='steps-post',
                         label='Opt ({:.1f}%)'.format(100*eef_frac ))
+
                 #plot the points and limiting resource for combined exits
                 for rsc,mrkr in rsc_markers.items():
                     mask = pareto_comb_mask & (combined_data["limiting_resource"]==rsc)
@@ -713,6 +730,7 @@ def gen_graph(args):
                       #combined_data['throughput_upper'][pareto_comb_mask][srt_comb_idx]*scaling)
 
                     # pick correct precalc-ed throughput boundary
+                    # TODO replace with pandas
                     if subop_frac == min(subop_fraction):
                         bounded_thru = combined_data["throughput_upper"][pareto_comb_mask][srt_comb_idx]
                     else:

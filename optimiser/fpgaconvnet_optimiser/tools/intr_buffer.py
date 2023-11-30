@@ -9,7 +9,7 @@ import math
 def get_bram_allowance(max_rsc_pc, bram_usage, platform_bram):
     # return the bram allowance and the new bram usage
     bram_pc = float(bram_usage)/float(platform_bram)
-    bram_available = math.floor(platform_bram * bram_pc)
+    bram_available = math.floor(max_rsc_pc*platform_bram - bram_usage)
     return bram_available
 
 # Calculating remaining space available to buffers
@@ -25,11 +25,20 @@ def get_buffer_size(input_shape,batch_size,
     # should have flag for board type (older boards require nearset pow2)
     fm_size = input_shape[0]*input_shape[1]*input_shape[2] / input_shape[3]
     if zbrd_flag:
+        # for very close to bram limit
+        if bram_available == 0:
+            return 0, 0, 1
         max_bram_size = 2**math.floor(math.log2(bram_available/float(input_shape[3])))
     else:
+        # for very close to bram limit
+        if bram_available == 0:
+            return 0, 0, 1
         max_bram_size = math.floor(bram_available/float(input_shape[3]))
     # NOTE assumes 16bits data width
     q_depth = math.floor((max_bram_size*1024)/fm_size)
+    # for very close to bram limit
+    if q_depth == 0:
+        return 0, 0, 1
     # recalc additional bram used
     # calcs value for 1 instance (coarse-1) remaining
     bram = 2**math.ceil(math.log2((q_depth*fm_size)/1024))
@@ -37,6 +46,9 @@ def get_buffer_size(input_shape,batch_size,
     # IO fifos not included in model, smaller buffer not factored in
     if bram >= bram_available: #max_bram_size:
         q_depth-=1
+        # for very close to bram limit
+        if q_depth == 0:
+            return 0, 0, 1
         bram = 2**math.ceil(math.log2((q_depth*fm_size)/1024))
         #raise ValueError(f"BRAM calc mismatch. bram:{bram}, max:{max_bram_size}")
     # calc min delay (include 16 min fms)
