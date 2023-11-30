@@ -91,7 +91,6 @@ def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
     #print("#################### Finished saving full network #######################")
 
     if is_branchy:
-
         #print("Pre Number of partitions:",len(net.partitions))
         #saving un-optimised, unsplit network
         old_name = net.name
@@ -100,8 +99,22 @@ def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
         print("Saved no opt, no exit split")
         #NOTE removing for time being
 
+        not_at_the_end=True
+        lidx=1
+        ### Generate all intr buffer placements (buffer1) ###
+        while not_at_the_end:
+            # rename
+            net.name = old_name+f"-noOpt-buffOffset{lidx:02d}"
+            # move the buffer along one place
+            net.buffer_shift(relative_offset=1)
+            # do the exit split
+            # save the version of the network
+            not_at_the_end=False#
+            lidx+=1
+        ### Generate all intr buffer placements (buffer1) ###
+
         # network function to create ee partitions
-        net.name = old_name+"-noOpt"
+        #net.name = old_name+"-noOpt"
         # NOTE very important function!
         net.exit_split(partition_index=0)
         print("Exit split complete")

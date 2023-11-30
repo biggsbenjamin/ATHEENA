@@ -385,42 +385,71 @@ def exit_split(self, partition_index):
 """
 (Temporary) Function to walk the intermediate feature map buffer
 along the backbone to further explore trade-offs.
+I want this to operate on full graph single partition (before split).
+TODO make option that can operate AFTER split (needs more prtn info)
 """
-def buffer_shift(self, partition_index):
+def buffer_shift(self, relative_offset, partition_index=0):
+    if relative_offset<1:
+        print("Offset value ({relative_offset}) results in no change.")
+        return
+    elif relative_offset>1:
+        raise NotImplementedError("Just one step at a time for now.")
     # fragment partition into individual partitions
     main_partition = self.partitions[partition_index]
     node_num = len(main_partition.graph.nodes)
 
-    # finde the buffer layers
+    # find the buffer layers
     node_list = graphs.ordered_node_list(main_partition.graph)
     buffer_list = []
     for node in node_list:
         if main_partition.graph.nodes[node]['type'] in [LAYER_TYPE.Buffer]: #keep buffer on EE side
             buffer_list.append(node)
-    print("buffer list:", buffer_list)
+    print("Buffer list:", buffer_list)
 
     # work out which one is the intermediate buffer - buffer1 (TWO STAGE ONLY FIXME)
     for b in buffer_list:
-        if main_partition.graph.nodes[b]['name'] == 'buffer1':
+        if b == 'buffer1':
             node=b
 
-    print(node)
+    print("node:\n",node)
     # get predecessor
     predec = graphs.get_prev_nodes(main_partition.graph, node)
     if len(predec) > 1:
         raise Exception("Multiple predecessors not supported")
+    predec=predec[0]
+
+    print("got predec:",predec)
 
     # get successor
     success = graphs.get_next_nodes(main_partition.graph, node)
     if len(success) > 1:
         raise Exception("Multiple successors not supported")
+    success=success[0]
 
-    # predecessor should be split layer the first go round
-    # successor conv layer
+    print("got success:",success)
 
-    # delete the buffer layer - the IO dimensions should still match
-    # insert a buffer AFTER the successor
+    # remove edges from inter buffer
+    main_partition.graph.remove_edge(predec,node)
+    main_partition.graph.remove_edge(node,success)
+    # add edge from pre to suc
+    main_partition.graph.add_edge(predec,success)
+    # get the successor of success
+    # get successor 2
+    suc2 = graphs.get_next_nodes(main_partition.graph, success)
+    if len(suc2) > 1:
+        raise Exception("Multiple successors not supported")
+    suc2=suc2[0]
+    # remove edge between success and suc2
+    main_partition.graph.remove_edge(success,suc2)
+    # add edge from success to intr buff
+    main_partition.graph.add_edge(success,node)
+    # add edge between buffer and the secondary successor
+    main_partition.graph.add_edge(node,suc2)
+    # the above works! but there's no error is dimension mismatch
+    # (FIXME maybe add this?)
+
     # set the dimensions using successor output
+    # coarseness not consideration (for now)
     # set ctrledges or whatever using buffer node info (doesn't matter,not used)
 
     return
