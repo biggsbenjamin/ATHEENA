@@ -35,6 +35,7 @@ import fpgaconvnet_optimiser.proto.fpgaconvnet_pb2
 from fpgaconvnet_optimiser.tools.layer_enum \
         import from_proto_layer_type
 import math
+import pandas as pd
 
 #from fpgaconvnet_optimiser.tools.ee_stage_merger import _strip_outer
 import re
@@ -46,22 +47,24 @@ import pandas as pd
 ####################### optimiser expr ####################
 ###########################################################
 
-def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
-    #opt_path is path of optimiser example config .yml file
+# init the optimiser object with the all info
+def optim_init(args):
+    #args.optimiser_path is path of optimiser example config .yml file
+    if args.model_path is None or args.optimiser_path is None or args.platform_path is None:
+        raise ValueError("Missing model path, optimiser config path or platform resource path")
 
     if not os.path.exists(args.output_path):
         os.makedirs(args.output_path)
-        print("gen op path")
+        print(f"Generating output path: {args.output_path}")
 
     #add optimiser config
-    with open(opt_path,"r") as f:
+    with open(args.optimiser_path,"r") as f:
         optimiser_config = yaml.load(f, Loader=yaml.Loader)
-        print("loading opt conf")
+        print("Loading optimiser cfg @: {args.optimiser_path}")
 
-    print("Starting optimisation")
     net = SimulatedAnnealing(
             args.save_name,
-            filepath,#args.model_path,
+            args.model_path,
             T=float(optimiser_config["annealing"]["T"]),
             T_min=float(optimiser_config["annealing"]["T_min"]),
             k=float(optimiser_config["annealing"]["k"]),
@@ -74,173 +77,188 @@ def optim_expr(args,filepath,is_branchy,opt_path,plat_path):
             )
     net.DEBUG=True #NOTE this is required, object doesnt have DEBUG unless declared
     net.objective  = 1 #NOTE throughput objective (default is latency)
-    print("generated simulated annealing object")
+    print("Generated simulated annealing optimiser object + parsed network.")
 
-    #updating params
+    # updating params
     net.batch_size = args.batch_size
-    net.update_platform(plat_path)
+    net.update_platform(args.platform_path)
+
     # update partitions
     net.update_partitions()
+    print("Parameters updated.")
 
     # complete fine transform for conv layers is more resource efficient
     if bool(optimiser_config["transforms"]["fine"]["start_complete"]):
-        print("applying fine max transform")
         for partition_index in range(len(net.partitions)):
             net.partitions[partition_index].apply_complete_fine()
+    print("Applied maximum fine grain transform to improve resource efficiency.")
+    # return opt object
+    return net
 
-    #print("Saving Network - no partition")
-    #net.save_all_partitions(args.output_path) # NOTE saves as one partition
-    #net.get_schedule_csv("scheduler.csv") #for scheduler for running on board
-    #print("#################### Finished saving full network #######################")
+# adding function def so I don't need to change names
+def _opt_loops(args,net,bshift=0):
+    # setting resource limits and no. runs for branchy optim
+    rsc_limits = [0.05, 0.1, 0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+    full_sa_runs = 10
 
-    if is_branchy:
-
-        #print("Pre Number of partitions:",len(net.partitions))
-        #saving un-optimised, unsplit network
-        old_name = net.name
-        net.name = old_name+"-noOpt-noESplit"
-        net.save_all_partitions(args.output_path)
-        print("Saved no opt, no exit split")
-        #NOTE removing for time being
-
-        # network function to create ee partitions
-        net.name = old_name+"-noOpt"
-        # NOTE very important function!
-        net.exit_split(partition_index=0)
-        print("Exit split complete")
-        net.save_all_partitions(args.output_path)
-        print("Saved no opt")
-        print("Post Number of partitions:",len(net.partitions))
-        # resetting name before optimisation
-        net.name = old_name
-
-    ### FIXME remove when regenerating results ###
-    print("Doing some dev on buffer placement... ignore rest of opt brn")
-    return
-
-    auto_flag=True #carry out lots of runs at different rsc if true
-    #if not auto_flag: #one run on partitions at optimiser_example specified rsc usage
-    #    net.rsc_allocation = 0.75 #forcing low rsc usage for debug
-    #    print(f"Attempting optim @ rsc:{net.rsc_allocation}")
-    #    net.run_optimiser()
-    #    print("Optimiser done, attempting partition update")
-    #    net.update_partitions()
-    #    print("Update done, attempting results saving")
-
-    #    #create folder to store results - percentage/iteration
-    #    post_optim_path = os.path.join(args.output_path,
-    #            "post_optim-rsc{}p".format(int(net.rsc_allocation*100)))
-    #    if not os.path.exists(post_optim_path):
-    #        os.makedirs(post_optim_path)
-    #    # save all partitions
-    #    net.save_all_partitions(post_optim_path)
-    #    print("Partitions saved")
-    #    # create report
-    #    net.create_report(os.path.join(post_optim_path,
-    #        "report_{}.json".format(net.name)))
-    #    # visualise network
-    #    #net.visualise(os.path.join(post_optim_path,"topology.png"))
-
-    ### FOR LOOP FOR REPEATED OPTIMISATION ###
-    #NOTE expose these to the expr top level
-    if is_branchy:
-        rsc_limits = [0.1,0.2,0.3,0.4,0.5,0.6]
-        full_sa_runs = 10
+    # set up buffer shifted path
+    if bshift > 0:
+        opth = os.path.join(args.output_path, f"buff-shift{bshift:02d}")
     else:
-        rsc_limits = [0.1,0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1]
-        full_sa_runs = 3
+        opth = os.path.join(args.output_path, "no-buff-shift")
+
+    # split the partitions, start doing the optimisations
+    # TODO separate out into separate fns
+    for rsc in rsc_limits:
+        for sa_i in range(full_sa_runs):
+            #deep copy the network
+            nets = [copy.deepcopy(net), copy.deepcopy(net)]
+            #remove other partition
+            nets[0].partitions.pop(0)
+            nets[1].partitions.pop(1)
+
+            #change the network name
+            if len(nets[0].partitions[0].graph.nodes) > len(nets[1].partitions[0].graph.nodes):
+                nets[0].name = nets[0].name+"-ee1-rsc{}p-iter{}".format(int(rsc*100),sa_i)
+                nets[1].name = nets[1].name+"-eef-rsc{}p-iter{}".format(int(rsc*100),sa_i)
+            else:
+                nets[0].name = nets[0].name+"-eef-rsc{}p-iter{}".format(int(rsc*100),sa_i)
+                nets[1].name = nets[1].name+"-ee1-rsc{}p-iter{}".format(int(rsc*100),sa_i)
+
+            for split in nets:
+                split.rsc_allocation = rsc
+                print("\nRunning split: {}".format(split.name))
+                # FIXME input should be able to have up to PORTnum
+                avoid_input_crs=True
+                if "eef" in split.name:
+                    # eef should be able to have any coarse input
+                    avoid_input_crs=False
+
+                pass_flag = split.run_optimiser(
+                    avoid_input_crs=avoid_input_crs)
+                if pass_flag:
+                    # update all partitions
+                    split.update_partitions(avoid_input_crs=avoid_input_crs)
+                    #create folder to store results - percentage/iteration
+                    post_optim_path = os.path.join(opth,
+                            "post_optim-rsc{}p".format(int(rsc*100)))
+                    if not os.path.exists(post_optim_path):
+                        os.makedirs(post_optim_path)
+
+                    # save all partitions
+                    split.save_all_partitions(post_optim_path)
+                    print("Partitions saved")
+                    # create report
+                    split.create_report(os.path.join(post_optim_path,
+                        "report_{}.json".format(split.name)))
+
+"""
+Original branchy optimisation
+"""
+def optim_brnchy(args):
+    # init
+    net = optim_init(args)
+    #saving un-optimised, unsplit network
+    old_name = net.name
+    net.name = old_name+"-noOpt-noESplit"
+    net.save_all_partitions(args.output_path)
+    print("Saved no opt, no exit split")
+    # Save net copy
+    net_cpy = copy.deepcopy(net)
+    # Save the no opt original version
+    net.name = old_name+"-noOpt"
+    # NOTE very important function!
+    net.exit_split(partition_index=0)
+    print("Exit split complete")
+    net.save_all_partitions(args.output_path)
+    print("Saved no opt")
+    # resetting name before optimisation
+    net.name = old_name
+    # running opt loop on the initial buffer placement
+    _opt_loops(args,net, bshift=0)
+    # return net copy before exit split
+    return net_cpy
+
+"""
+Branchy optimisation with repetition for buffer shuffling
+"""
+def optim_brnchy_buffshuff(args):
+    # run original function for generating with no buffer shift
+    bshifter = optim_brnchy(args)
+
+    not_at_the_end=True
+    lidx=1
+    # Generate all intr buffer placements (buffer1)
+    while True:
+        # rename
+        bshifter.name = old_name+f"-noOpt-buffOffset{lidx:02d}"
+        # move the buffer along one place
+        not_at_the_end=bshifter.buffer_shift(relative_offset=1)
+        # poor man's do while loop
+        if not not_at_the_end:
+            break
+        # create copy of network for exit split and opt
+        esplitter = copy.deepcopy(bshifter)
+        # do the exit split
+        esplitter.exit_split(partition_index=0)
+        # save the version of the network
+        esplitter.save_all_partitions(args.output_path)
+        # set name
+        esplitter.name = old_name+f"-buffOffset{lidx:02d}"
+        # run optimisation loop of the network
+        _opt_loops(args,esplitter, lidx)
+        # increase shift index
+        lidx+=1
+
+def optim_stndrd(args):
+    net = optim_init(args)
+
+    # set up rsc limits for vanilla optim
+    rsc_limits = [0.1,0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1]
+    # TODO bake into the pool/multi thread
+    full_sa_runs = 3
 
     print("Using Resource limits:{} for {} runs each.".format(rsc_limits,full_sa_runs))
 
-    if auto_flag:
-        if is_branchy:
-            for rsc in rsc_limits:
-                for sa_i in range(full_sa_runs):
-                    #deep copy the network
-                    nets = [copy.deepcopy(net), copy.deepcopy(net)]
-                    #remove other partition
-                    nets[0].partitions.pop(0)
-                    nets[1].partitions.pop(1)
+    # non-branchy optimisation loop
+    for rsc in rsc_limits:
+        for sa_i in range(full_sa_runs):
+            # copy the network for separate runs
+            runner = copy.deepcopy(net)
+            # set rsc lim and iteration in the name
+            runner.name = runner.name+"-rsc{}p-iter{}".format(int(rsc*100),sa_i)
+            # set rsc alloc fraction of board
+            runner.rsc_allocation = rsc
+            print("\nRunning net: {}".format(runner.name))
+            # check the optimiser was successful
+            pass_flag = runner.run_optimiser() #true = pass
+            if pass_flag:
+                # update all partitions
+                runner.update_partitions()
+                #create folder to store results - percentage/iteration
+                post_optim_path = os.path.join(args.output_path,
+                        "post_optim-rsc{}p".format(int(rsc*100)))
+                if not os.path.exists(post_optim_path):
+                    os.makedirs(post_optim_path)
 
-                    #change the network name
-                    if len(nets[0].partitions[0].graph.nodes) > len(nets[1].partitions[0].graph.nodes):
-                        nets[0].name = nets[0].name+"-ee1-rsc{}p-iter{}".format(int(rsc*100),sa_i)
-                        nets[1].name = nets[1].name+"-eef-rsc{}p-iter{}".format(int(rsc*100),sa_i)
-                    else:
-                        nets[0].name = nets[0].name+"-eef-rsc{}p-iter{}".format(int(rsc*100),sa_i)
-                        nets[1].name = nets[1].name+"-ee1-rsc{}p-iter{}".format(int(rsc*100),sa_i)
+                # save all partitions
+                runner.save_all_partitions(post_optim_path)
+                print("Partitions saved")
+                # create report
+                runner.create_report(os.path.join(post_optim_path,
+                    "report_{}.json".format(runner.name)))
 
-                    for split in nets:
-                        split.rsc_allocation = rsc
-                        print("\nRunning split: {}".format(split.name))
-
-                        # FIXME input should be able to have up to PORTnum
-                        avoid_input_crs=True
-                        if "eef" in split.name:
-                            # eef should be able to have any coarse input
-                            avoid_input_crs=False
-
-                        pass_flag = split.run_optimiser(
-                            avoid_input_crs=avoid_input_crs)
-                        if pass_flag:
-                            # update all partitions
-                            split.update_partitions(avoid_input_crs=avoid_input_crs)
-                            #create folder to store results - percentage/iteration
-                            post_optim_path = os.path.join(args.output_path,
-                                    "post_optim-rsc{}p".format(int(rsc*100)))
-                            if not os.path.exists(post_optim_path):
-                                os.makedirs(post_optim_path)
-
-                            # save all partitions
-                            split.save_all_partitions(post_optim_path)
-                            print("Partitions saved")
-                            # create report
-                            split.create_report(os.path.join(post_optim_path,
-                                "report_{}.json".format(split.name)))
-                            # NOTE following not used
-                            # visualise network
-                            #split.visualise(os.path.join(post_optim_path,"topology.png"))
-                            # create scheduler
-                            #split.get_schedule_csv(os.path.join(args.output_path,"scheduler.csv"))
-        else:
-            # not branchy optimisation loop
-            for rsc in rsc_limits:
-                for sa_i in range(full_sa_runs):
-                    runner = copy.deepcopy(net)
-                    runner.name = runner.name+"-rsc{}p-iter{}".format(int(rsc*100),sa_i)
-                    runner.rsc_allocation = rsc
-                    print("\nRunning net: {}".format(runner.name))
-                    pass_flag = runner.run_optimiser() #true = pass
-                    if pass_flag:
-                        # update all partitions
-                        runner.update_partitions()
-                        #create folder to store results - percentage/iteration
-                        post_optim_path = os.path.join(args.output_path,
-                                "post_optim-rsc{}p".format(int(rsc*100)))
-                        if not os.path.exists(post_optim_path):
-                            os.makedirs(post_optim_path)
-
-                        # save all partitions
-                        runner.save_all_partitions(post_optim_path)
-                        print("Partitions saved")
-                        # create report
-                        runner.create_report(os.path.join(post_optim_path,
-                            "report_{}.json".format(runner.name)))
-                        # NOTE following not used
-                        # visualise network
-                        #runner.visualise(os.path.join(post_optim_path,"topology.png"))
-                        # create scheduler
-                        #runner.get_schedule_csv(os.path.join(args.output_path,"scheduler.csv"))
-
-#pull out throughput info, rsc usage
-#"network"
-#    "performance"
-#    "throughput"
-#"max_resource_usage"
-#    "LUT"
-#    "FF"
-#    "BRAM"
-#    "DSP"
+"""
+Pull out throughput info, rsc usage
+"network"
+    "performance"
+    "throughput"
+"max_resource_usage"
+    "LUT"
+    "FF"
+    "BRAM"
+    "DSP"
+"""
 def extract_rpt_data(data_dict, input_path, report_str=""):
     #resources to search through
     rsc_names = ["LUT","FF","BRAM","DSP"]
@@ -300,7 +318,8 @@ def combine_network_sections(args, ee1_data, eef_data,
                     "LUT":[], "FF":[], "BRAM":[], "DSP":[],
                     "buff_min_delay":[],"q_depth":[],
                     "throughput_rho":[],
-                    "throughput_upper":[],"throughput_lower":[]}
+                    "throughput_upper":[],"throughput_lower":[],
+                    "old_thru":[]}
 
     ee1_len = len(ee1_data["report_name"])
     eef_len = len(eef_data["report_name"])
@@ -331,7 +350,8 @@ def combine_network_sections(args, ee1_data, eef_data,
             # get limiting resource
             # NOTE - only selects ONE max (if there are more then might trigger BRAM calc)
             rsc_max_name = max(rsc_sums, key=lambda x: rsc_sums[x]["pc"])
-            # double check if bram is limiting - TODO see if the difference is under 1 intrbuff size
+            # double check if bram is limiting
+            # TODO see if the difference is under 1 intrbuff size
             if math.isclose(rsc_sums["BRAM"]["pc"], rsc_sums[rsc_max_name]["pc"], abs_tol=1e-12):
                 rsc_max_name = "BRAM"
             rsc_max_pc = rsc_sums[rsc_max_name]["pc"]
@@ -360,7 +380,8 @@ def combine_network_sections(args, ee1_data, eef_data,
                 ptn_file = outer_fldr[7:]
                 # finds the resource lim specified in the file name
                 rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)",ptn_file).group()
-                path = os.path.join(args.input_path,"post_optim-rsc{}p/{}".format(rsc_lim,ptn_file))
+                path = os.path.join(
+                    args.input_path,"post_optim-rsc{}p/{}".format(rsc_lim,ptn_file))
 
                 # load partition information
                 ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
@@ -375,11 +396,13 @@ def combine_network_sections(args, ee1_data, eef_data,
                         if lyr_type == LAYER_TYPE.Buffer:
                             #print("found buffer to late stage")
                             intr_buff = lyr
+
                 # set input shape of intermediate buffer
                 input_shape=[intr_buff.parameters.rows_in,
                              intr_buff.parameters.cols_in,
                              intr_buff.parameters.channels_in,
                              intr_buff.parameters.coarse_in]
+                # get batch size?
                 batch_size = int(ee1_ptn.batch_size)
                 # get new bram usage and q_depth
                 bram, min_delay, q_depth = intr_buffer.get_buffer_size(
@@ -401,12 +424,12 @@ def combine_network_sections(args, ee1_data, eef_data,
             combined_dict["buff_min_delay"].append(min_delay)
 
             ### NOTE acclerator throughput under inf buffer assumption!
-            #minimum of the exit throughputs (limiting thr)
-            #combined_dict["throughput"].append(min(ee1_thru, (float(eef_data["throughput"][eef_idx])/eef_exit_fraction )))
+            # minimum of the exit throughputs (limiting thr)
+            combined_dict["old_thru"].append(
+                min(ee1_thru,(float(eef_data["throughput"][eef_idx])/eef_exit_fraction )))
             ### NOTE acclerator throughput under inf buffer assumption!
 
             # store predicted throughput
-            # NOTE ADD ME BACK
             combined_dict["throughput"].append(adj_thru)
             # store traffic intensity
             combined_dict["throughput_rho"].append(rho)
@@ -417,16 +440,12 @@ def combine_network_sections(args, ee1_data, eef_data,
                 ee1_thru,eef_thru_raw,
                 eef_exit_fraction+max(prob_rt_deltas),
                 platform_dict["freq_mhz"],q_depth)
-            # NOTE REMOVE ME
-            #thru_bnd=min(ee1_thru, (float(eef_data["throughput"][eef_idx])/(eef_exit_fraction+max(prob_rt_deltas)) ))
             combined_dict["throughput_lower"].append(thru_bnd)
             # calc best case throughput (based on run time delta)
             thru_bnd,_=intr_buffer.get_throughput_pred(
                 ee1_thru,eef_thru_raw,
                 eef_exit_fraction+min(prob_rt_deltas),
                 platform_dict["freq_mhz"],q_depth)
-            # NOTE REMOVE ME
-            #thru_bnd=min(ee1_thru, (float(eef_data["throughput"][eef_idx])/(eef_exit_fraction+min(prob_rt_deltas)) ))
             combined_dict["throughput_upper"].append(thru_bnd)
 
     #change to numpy arrays
@@ -814,27 +833,16 @@ def main():
 
     args = parser.parse_args()
 
-    #model path
-    filepath = args.model_path
-
-    #optimiser path
-    optpath = args.optimiser_path
-
-    #platform path
-    platpath = args.platform_path
-
     if args.expr == 'opt_brn':
-        if filepath is None or optpath is None or platpath is None:
-            raise ValueError("Missing model path, optimiser config path or platform resource path")
-        print(filepath)
-        print(platpath)
-        optim_expr(args, filepath, True, optpath, platpath)
+        optim_brnchy(args)
+    elif args.expr == 'opt_brn_buffshuff':
+        optim_brnchy_buffshuff(args)
     elif args.expr == 'opt':
-        optim_expr(args, filepath, False, optpath, platpath)
+        optim_stndrd(args)
     elif args.expr == 'gen_graph':
         gen_graph(args)
     else:
-        raise NameError("Experiment doesn\'t exist")
+        raise NameError(f"Function \'{args.expr}\' doesn\'t exist.")
 
 if __name__ == "__main__":
     main()

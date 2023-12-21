@@ -52,6 +52,20 @@ examples/**/partition_*/
 
 test/partitions/**/outputs/
 test/partitions/**/partition_*/
+test/partitions/CONF_ee_30rsc
+test/partitions/CONF_ee_40rsc
+test/partitions/CONF_ee_50rsc
+test/partitions/CONF_ee_60rsc
+test/partitions/CONF_ee_70rsc
+test/partitions/CONF_ee_80rsc
+test/partitions/CONF_ee_90rsc
+test/partitions/CONF_ee_custom90rsc
+test/partitions/CONF_se_lenet_bs1024_r80
+test/partitions/CONF_se_lenet_bs256_r80
+test/partitions/CPY_test
+test/partitions/branchy_lenet_eg
+test/partitions/se_lenet_BASELINE
+
 yaml-cpp-release-0.5.3/*
 
 sd_card/

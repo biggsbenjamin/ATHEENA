@@ -378,52 +378,90 @@ def exit_split(self, partition_index):
             self.partitions[pi].wr_layer = None
 
     # quick node check for validation
-    assert(node_num == new_node_num, "ERROR: number of nodes has changed on exit split")
+    assert node_num == new_node_num, \
+        "ERROR: number of nodes has changed on exit split"
 
     self.update_partitions()
 
 """
 (Temporary) Function to walk the intermediate feature map buffer
 along the backbone to further explore trade-offs.
+I want this to operate on full graph single partition (before split).
+
+TODO make option that can operate AFTER split (needs more prtn info)
 """
-def buffer_shift(self, partition_index):
+def buffer_shift(self, relative_offset, partition_index=0):
+    if relative_offset<1:
+        print("Offset value ({relative_offset}) results in no change.")
+        return
+    elif relative_offset>1:
+        raise NotImplementedError("Just one step at a time for now.")
     # fragment partition into individual partitions
     main_partition = self.partitions[partition_index]
     node_num = len(main_partition.graph.nodes)
 
-    # finde the buffer layers
+    # find the buffer layers
     node_list = graphs.ordered_node_list(main_partition.graph)
     buffer_list = []
     for node in node_list:
         if main_partition.graph.nodes[node]['type'] in [LAYER_TYPE.Buffer]: #keep buffer on EE side
             buffer_list.append(node)
-    print("buffer list:", buffer_list)
 
     # work out which one is the intermediate buffer - buffer1 (TWO STAGE ONLY FIXME)
     for b in buffer_list:
-        if main_partition.graph.nodes[b]['name'] == 'buffer1':
-            node=b
+        if b == 'buffer1':
+            bnode=b
 
-    print(node)
-    # get predecessor
-    predec = graphs.get_prev_nodes(main_partition.graph, node)
+    # get predecessor of the buffer
+    predec = graphs.get_prev_nodes(main_partition.graph, bnode)
     if len(predec) > 1:
         raise Exception("Multiple predecessors not supported")
+    predec=predec[0]
 
-    # get successor
-    success = graphs.get_next_nodes(main_partition.graph, node)
+    # get successor of buffer node
+    success = graphs.get_next_nodes(main_partition.graph, bnode)
     if len(success) > 1:
         raise Exception("Multiple successors not supported")
+    success=success[0]
+    # return false if you hit the exit node, no more buffer shifting
+    if main_partition.graph.nodes[success]['type'] in [LAYER_TYPE.Buffer,LAYER_TYPE.If]:
+        return False
+    # get successor 2
+    suc2 = graphs.get_next_nodes(main_partition.graph, success)
+    if len(suc2) > 1:
+        raise Exception("Multiple successors not currently supported")
+    suc2=suc2[0]
+    # return false if you hit the exit node, have min one node in later stage
+    if main_partition.graph.nodes[suc2]['type'] in [LAYER_TYPE.Buffer,LAYER_TYPE.If]:
+        return False
 
-    # predecessor should be split layer the first go round
-    # successor conv layer
+    # remove edges from inter buffer
+    main_partition.graph.remove_edge(predec,bnode)
+    main_partition.graph.remove_edge(bnode,success)
+    # add edge from pre to suc
+    main_partition.graph.add_edge(predec,success)
+    # get the successor of success
+    # remove edge between success and suc2
+    main_partition.graph.remove_edge(success,suc2)
+    # add edge from success to intr buff
+    main_partition.graph.add_edge(success,bnode)
+    # add edge between buffer and the secondary successor
+    main_partition.graph.add_edge(bnode,suc2)
+    # the above works! but there's no error if dimension mismatch
+    # (FIXME maybe add this?)
 
-    # delete the buffer layer - the IO dimensions should still match
-    # insert a buffer AFTER the successor
-    # set the dimensions using successor output
-    # set ctrledges or whatever using buffer node info (doesn't matter,not used)
+    # get the dimensions using successor output
+    dim = onnx_helper._out_dim(self.model, self.submodels, success)
+    # set the buffer dimensions to fit with new placement
+    main_partition.graph.nodes[bnode]['hw'].channels = dim[0]
+    main_partition.graph.nodes[bnode]['hw'].rows     = dim[1]
+    main_partition.graph.nodes[bnode]['hw'].cols     = dim[2]
 
-    return
+    # NOTE coarseness not consideration (for now, since before optimisation)
+    # NOTE ctrl edges don't need to be changed
+
+    # returning true to say that buffer can continue to be shifted
+    return True
 
 # in the dev script, save this new version and repeat the process
 # NOTE need to do deep cpy in between buffer shift
