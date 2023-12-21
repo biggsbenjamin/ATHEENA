@@ -35,6 +35,7 @@ import fpgaconvnet_optimiser.proto.fpgaconvnet_pb2
 from fpgaconvnet_optimiser.tools.layer_enum \
         import from_proto_layer_type
 import math
+import pandas as pd
 
 #from fpgaconvnet_optimiser.tools.ee_stage_merger import _strip_outer
 import re
@@ -75,9 +76,10 @@ def optim_init(args):
     net.objective  = 1 #NOTE throughput objective (default is latency)
     print("Generated simulated annealing optimiser object + parsed network.")
 
-    #updating params
+    # updating params
     net.batch_size = args.batch_size
     net.update_platform(args.platform_path)
+
     # update partitions
     net.update_partitions()
     print("Parameters updated.")
@@ -87,80 +89,23 @@ def optim_init(args):
         for partition_index in range(len(net.partitions)):
             net.partitions[partition_index].apply_complete_fine()
     print("Applied maximum fine grain transform to improve resource efficiency.")
-
+    # return opt object
     return net
 
-def optim_brnchy(args):
-    net = optim_init(args)
-
-    #print("Pre Number of partitions:",len(net.partitions))
-    #saving un-optimised, unsplit network
-    old_name = net.name
-    net.name = old_name+"-noOpt-noESplit"
-    net.save_all_partitions(args.output_path)
-    print("Saved no opt, no exit split")
-    #NOTE removing for time being
-
-    not_at_the_end=True
-    lidx=1
-    ### Generate all intr buffer placements (buffer1) ###
-    while not_at_the_end:
-        # rename
-        net.name = old_name+f"-noOpt-buffOffset{lidx:02d}"
-        # move the buffer along one place
-        net.buffer_shift(relative_offset=1)
-        # do the exit split
-        # save the version of the network
-        not_at_the_end=False#
-        lidx+=1
-    ### Generate all intr buffer placements (buffer1) ###
-
-    # network function to create ee partitions
-    #net.name = old_name+"-noOpt"
-    # NOTE very important function!
-    net.exit_split(partition_index=0)
-    print("Exit split complete")
-    net.save_all_partitions(args.output_path)
-    print("Saved no opt")
-    print("Post Number of partitions:",len(net.partitions))
-    # resetting name before optimisation
-    net.name = old_name
-
-    ### FIXME remove when regenerating results ###
-    print("Doing some dev on buffer placement... ignore rest of opt brn")
-    return
-    ### FIXME remove when regenerating results ###
-
-    # NOTE below is the auto flag stuff, this will do a single run
-    # TODO make this a separate fn if required
-    auto_flag=True #carry out lots of runs at different rsc if true
-    #if not auto_flag: #one run on partitions at optimiser_example specified rsc usage
-    #    net.rsc_allocation = 0.75 #forcing low rsc usage for debug
-    #    print(f"Attempting optim @ rsc:{net.rsc_allocation}")
-    #    net.run_optimiser()
-    #    print("Optimiser done, attempting partition update")
-    #    net.update_partitions()
-    #    print("Update done, attempting results saving")
-
-    #    #create folder to store results - percentage/iteration
-    #    post_optim_path = os.path.join(args.output_path,
-    #            "post_optim-rsc{}p".format(int(net.rsc_allocation*100)))
-    #    if not os.path.exists(post_optim_path):
-    #        os.makedirs(post_optim_path)
-    #    # save all partitions
-    #    net.save_all_partitions(post_optim_path)
-    #    print("Partitions saved")
-    #    # create report
-    #    net.create_report(os.path.join(post_optim_path,
-    #        "report_{}.json".format(net.name)))
-    #    # visualise network
-    #    #net.visualise(os.path.join(post_optim_path,"topology.png"))
-
+# adding function def so I don't need to change names
+def _opt_loops(args,net,bshift=0):
     # setting resource limits and no. runs for branchy optim
-    rsc_limits = [0.1,0.2,0.3,0.4,0.5,0.6]
+    rsc_limits = [0.05, 0.1, 0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
     full_sa_runs = 10
 
-    # split the partitions, start doing the optimisations, TODO separate out into separate fns
+    # set up buffer shifted path
+    if bshift > 0:
+        opth = os.path.join(args.output_path, f"buff-shift{bshift:02d}")
+    else:
+        opth = os.path.join(args.output_path, "no-buff-shift")
+
+    # split the partitions, start doing the optimisations
+    # TODO separate out into separate fns
     for rsc in rsc_limits:
         for sa_i in range(full_sa_runs):
             #deep copy the network
@@ -180,7 +125,6 @@ def optim_brnchy(args):
             for split in nets:
                 split.rsc_allocation = rsc
                 print("\nRunning split: {}".format(split.name))
-
                 # FIXME input should be able to have up to PORTnum
                 avoid_input_crs=True
                 if "eef" in split.name:
@@ -193,7 +137,7 @@ def optim_brnchy(args):
                     # update all partitions
                     split.update_partitions(avoid_input_crs=avoid_input_crs)
                     #create folder to store results - percentage/iteration
-                    post_optim_path = os.path.join(args.output_path,
+                    post_optim_path = os.path.join(opth,
                             "post_optim-rsc{}p".format(int(rsc*100)))
                     if not os.path.exists(post_optim_path):
                         os.makedirs(post_optim_path)
@@ -205,12 +149,70 @@ def optim_brnchy(args):
                     split.create_report(os.path.join(post_optim_path,
                         "report_{}.json".format(split.name)))
 
+"""
+Original branchy optimisation
+"""
+def optim_brnchy(args):
+    # init
+    net = optim_init(args)
+    #saving un-optimised, unsplit network
+    old_name = net.name
+    net.name = old_name+"-noOpt-noESplit"
+    net.save_all_partitions(args.output_path)
+    print("Saved no opt, no exit split")
+    # Save net copy
+    net_cpy = copy.deepcopy(net)
+    # Save the no opt original version
+    net.name = old_name+"-noOpt"
+    # NOTE very important function!
+    net.exit_split(partition_index=0)
+    print("Exit split complete")
+    net.save_all_partitions(args.output_path)
+    print("Saved no opt")
+    # resetting name before optimisation
+    net.name = old_name
+    # running opt loop on the initial buffer placement
+    _opt_loops(args,net, bshift=0)
+    # return net copy before exit split
+    return net_cpy
+
+"""
+Branchy optimisation with repetition for buffer shuffling
+"""
+def optim_brnchy_buffshuff(args):
+    # run original function for generating with no buffer shift
+    bshifter = optim_brnchy(args)
+
+    not_at_the_end=True
+    lidx=1
+    # Generate all intr buffer placements (buffer1)
+    while True:
+        # rename
+        bshifter.name = old_name+f"-noOpt-buffOffset{lidx:02d}"
+        # move the buffer along one place
+        not_at_the_end=bshifter.buffer_shift(relative_offset=1)
+        # poor man's do while loop
+        if not not_at_the_end:
+            break
+        # create copy of network for exit split and opt
+        esplitter = copy.deepcopy(bshifter)
+        # do the exit split
+        esplitter.exit_split(partition_index=0)
+        # save the version of the network
+        esplitter.save_all_partitions(args.output_path)
+        # set name
+        esplitter.name = old_name+f"-buffOffset{lidx:02d}"
+        # run optimisation loop of the network
+        _opt_loops(args,esplitter, lidx)
+        # increase shift index
+        lidx+=1
+
 def optim_stndrd(args):
     net = optim_init(args)
 
     # set up rsc limits for vanilla optim
     rsc_limits = [0.1,0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1]
-    # TODO bake in the pool/multi thread
+    # TODO bake into the pool/multi thread
     full_sa_runs = 3
 
     print("Using Resource limits:{} for {} runs each.".format(rsc_limits,full_sa_runs))
@@ -313,7 +315,8 @@ def combine_network_sections(args, ee1_data, eef_data,
                     "LUT":[], "FF":[], "BRAM":[], "DSP":[],
                     "buff_min_delay":[],"q_depth":[],
                     "throughput_rho":[],
-                    "throughput_upper":[],"throughput_lower":[]}
+                    "throughput_upper":[],"throughput_lower":[],
+                    "old_thru":[]}
 
     ee1_len = len(ee1_data["report_name"])
     eef_len = len(eef_data["report_name"])
@@ -344,7 +347,8 @@ def combine_network_sections(args, ee1_data, eef_data,
             # get limiting resource
             # NOTE - only selects ONE max (if there are more then might trigger BRAM calc)
             rsc_max_name = max(rsc_sums, key=lambda x: rsc_sums[x]["pc"])
-            # double check if bram is limiting - TODO see if the difference is under 1 intrbuff size
+            # double check if bram is limiting
+            # TODO see if the difference is under 1 intrbuff size
             if math.isclose(rsc_sums["BRAM"]["pc"], rsc_sums[rsc_max_name]["pc"], abs_tol=1e-12):
                 rsc_max_name = "BRAM"
             rsc_max_pc = rsc_sums[rsc_max_name]["pc"]
@@ -372,7 +376,8 @@ def combine_network_sections(args, ee1_data, eef_data,
                 ptn_file = outer_fldr[7:]
                 # finds the resource lim specified in the file name
                 rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)",ptn_file).group()
-                path = os.path.join(args.input_path,"post_optim-rsc{}p/{}".format(rsc_lim,ptn_file))
+                path = os.path.join(
+                    args.input_path,"post_optim-rsc{}p/{}".format(rsc_lim,ptn_file))
 
                 # load partition information
                 ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
@@ -387,11 +392,13 @@ def combine_network_sections(args, ee1_data, eef_data,
                         if lyr_type == LAYER_TYPE.Buffer:
                             #print("found buffer to late stage")
                             intr_buff = lyr
+
                 # set input shape of intermediate buffer
                 input_shape=[intr_buff.parameters.rows_in,
                              intr_buff.parameters.cols_in,
                              intr_buff.parameters.channels_in,
                              intr_buff.parameters.coarse_in]
+                # get batch size?
                 batch_size = int(ee1_ptn.batch_size)
                 # get new bram usage and q_depth
                 bram, min_delay, q_depth = intr_buffer.get_buffer_size(
@@ -412,12 +419,12 @@ def combine_network_sections(args, ee1_data, eef_data,
                 platform_dict["freq_mhz"],q_depth)
 
             ### NOTE acclerator throughput under inf buffer assumption!
-            #minimum of the exit throughputs (limiting thr)
-            #combined_dict["throughput"].append(min(ee1_thru, (float(eef_data["throughput"][eef_idx])/eef_exit_fraction )))
+            # minimum of the exit throughputs (limiting thr)
+            combined_dict["old_thru"].append(
+                min(ee1_thru,(float(eef_data["throughput"][eef_idx])/eef_exit_fraction )))
             ### NOTE acclerator throughput under inf buffer assumption!
 
             # store predicted throughput
-            # NOTE ADD ME BACK
             combined_dict["throughput"].append(adj_thru)
             # store traffic intensity
             combined_dict["throughput_rho"].append(rho)
@@ -428,16 +435,12 @@ def combine_network_sections(args, ee1_data, eef_data,
                 ee1_thru,eef_thru_raw,
                 eef_exit_fraction+max(prob_rt_deltas),
                 platform_dict["freq_mhz"],q_depth)
-            # NOTE REMOVE ME
-            #thru_bnd=min(ee1_thru, (float(eef_data["throughput"][eef_idx])/(eef_exit_fraction+max(prob_rt_deltas)) ))
             combined_dict["throughput_lower"].append(thru_bnd)
             # calc best case throughput (based on run time delta)
             thru_bnd,_=intr_buffer.get_throughput_pred(
                 ee1_thru,eef_thru_raw,
                 eef_exit_fraction+min(prob_rt_deltas),
                 platform_dict["freq_mhz"],q_depth)
-            # NOTE REMOVE ME
-            #thru_bnd=min(ee1_thru, (float(eef_data["throughput"][eef_idx])/(eef_exit_fraction+min(prob_rt_deltas)) ))
             combined_dict["throughput_upper"].append(thru_bnd)
 
     #change to numpy arrays
@@ -814,6 +817,8 @@ def main():
 
     if args.expr == 'opt_brn':
         optim_brnchy(args)
+    elif args.expr == 'opt_brn_buffshuff':
+        optim_brnchy_buffshuff(args)
     elif args.expr == 'opt':
         optim_stndrd(args)
     elif args.expr == 'gen_graph':
