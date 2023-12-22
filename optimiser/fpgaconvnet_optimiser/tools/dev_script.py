@@ -43,6 +43,10 @@ import re
 #For getting nicer results
 import pandas as pd
 
+# Doing some profiling work
+import cProfile, pstats, io
+from pstats import SortKey
+
 ###########################################################
 ####################### optimiser expr ####################
 ###########################################################
@@ -323,6 +327,8 @@ def combine_network_sections(args, ee1_data, eef_data,
 
     ee1_len = len(ee1_data["report_name"])
     eef_len = len(eef_data["report_name"])
+    # very basic memoisation to reduce parse time
+    intr_buff_memo = {}
     for ee1_idx in range(ee1_len):
         for eef_idx in range(eef_len):
             ee1_thru = ee1_data["throughput"][ee1_idx]
@@ -373,8 +379,6 @@ def combine_network_sections(args, ee1_data, eef_data,
 
                 ### get the input shape of the buffer layer
                 # convert report name to partition name
-                #outer_fldr = _strip_outer(
-                #    ee1_data["report_name"][ee1_idx], "'", "'")
                 outer_fldr = ee1_data["report_name"][ee1_idx]
                 # remove 'report_'
                 ptn_file = outer_fldr[7:]
@@ -383,30 +387,34 @@ def combine_network_sections(args, ee1_data, eef_data,
                 path = os.path.join(
                     args.input_path,"post_optim-rsc{}p/{}".format(rsc_lim,ptn_file))
 
-                # load partition information
-                ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
-                with open(path,'r') as f:
-                    json_format.Parse(f.read(), ee1)
-                # get 'buffer1' layer (intermediate buffer layer)
-                intr_buff=None
-                ee1_ptn = ee1.partition[0]
-                for lyr in ee1_ptn.layers:
-                    lyr_type = from_proto_layer_type(lyr.type)
-                    if lyr.streams_out[0].name == "out":
-                        if lyr_type == LAYER_TYPE.Buffer:
-                            #print("found buffer to late stage")
-                            intr_buff = lyr
+                if path not in intr_buff_memo:
+                    # load partition information
+                    ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
+                    with open(path,'r') as f:
+                        json_format.Parse(f.read(), ee1)
+                    # get 'buffer1' layer (intermediate buffer layer)
+                    intr_buff=None
+                    ee1_ptn = ee1.partition[0]
+                    for lyr in ee1_ptn.layers:
+                        lyr_type = from_proto_layer_type(lyr.type)
+                        if lyr.streams_out[0].name == "out":
+                            if lyr_type == LAYER_TYPE.Buffer:
+                                #print("found buffer to late stage")
+                                intr_buff = lyr
 
-                # set input shape of intermediate buffer
-                input_shape=[intr_buff.parameters.rows_in,
-                             intr_buff.parameters.cols_in,
-                             intr_buff.parameters.channels_in,
-                             intr_buff.parameters.coarse_in]
+                    # set input shape of intermediate buffer
+                    input_shape=[intr_buff.parameters.rows_in,
+                                 intr_buff.parameters.cols_in,
+                                 intr_buff.parameters.channels_in,
+                                 intr_buff.parameters.coarse_in]
+                    # memo shape list
+                    intr_buff_memo[path] = input_shape
+
                 # get batch size?
                 batch_size = int(ee1_ptn.batch_size)
                 # get new bram usage and q_depth
                 bram, min_delay, q_depth = intr_buffer.get_buffer_size(
-                    input_shape,batch_size,bram_allw)
+                    intr_buff_memo[path],batch_size,bram_allw)
                 # NOTE if some rsc AND bram are max limiting rsc then q depth might be 0
                 if q_depth == 0:
                     q_depth=1 # set to 1 because of default buffer sizing
@@ -802,7 +810,7 @@ def gen_graph(args):
 #################        main         #####################
 ###########################################################
 
-def main():
+def cli():
     parser = argparse.ArgumentParser(description="script for running experiments")
     parser.add_argument('--expr',
             choices=['opt_brn','opt', 'gen_graph'],
@@ -830,9 +838,14 @@ def main():
             help='folder location for baseline report JSONs')
     parser.add_argument('-pr','--profiled_probability', type=float, default=0.5, required=False,
             help='Probability of samples that will use the late stage. E.g. 0.25 means 25% of values will utilise late stage, 75% early-exit. (p value from paper)')
+    # NOTE Controlling the cprofiling, if it runs or not
+    parser.add_argument('-cp','--cprofiling', nargs='?', default=False, const=True)
 
+    # parse the args and create arg obj
     args = parser.parse_args()
+    return args
 
+def main(args):
     if args.expr == 'opt_brn':
         optim_brnchy(args)
     elif args.expr == 'opt_brn_buffshuff':
@@ -845,4 +858,23 @@ def main():
         raise NameError(f"Function \'{args.expr}\' doesn\'t exist.")
 
 if __name__ == "__main__":
-    main()
+    args = cli()
+    if args.cprofiling:
+        # set up prof obj
+        pr = cProfile.Profile()
+        pr.enable()
+        # run main
+        main(args)
+        pr.disable()
+        # get diff string with time
+        now = dt.now().strftime("%Y%m%d-%H%M%S")
+        # dump stats to be searchable
+        pr.dump_stats(f'./profiling/{args.expr}-fn_{now}.prof')
+        #s = io.StringIO()
+        s = open(f'./profiling/{args.expr}-fn_{now}.txt','w')
+        # sorting by cumulative time
+        ps = pstats.Stats(pr, stream=s).sort_stats('cumtime')
+        ps.print_stats('/tools/')
+        #ps.print_stats()
+    else:
+        main(args)
