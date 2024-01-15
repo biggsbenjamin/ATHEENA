@@ -107,8 +107,8 @@ def get_throughput_pred(s1_thru,s2_thru,s2_exit_frac,freq_mhz,q_depth):
     s2,mean,var = get_svt_coef(s2_servicetimes,s2_probs)
     rho = s1_thru * mean  # lambda/mu, avg traffic intensity
     #print(f"rho : {rho}, s2: {s2}, qd: {q_depth}")
-    p_0_smith = get_p_0(rho,s2,q_depth)
-    p_n_smith = get_p_K(rho,s2,q_depth)
+    p_0_smith = get_p_0(rho,s2,q_depth+1)
+    p_n_smith = get_p_K(rho,s2,q_depth+1)
     thru_smith = 1-p_n_smith
     #print(f"thru: {thru_smith}, thrus1: {s1_thru}, thrus2: {1/mean}")
     thru_smith_alt = (1-p_0_smith)/rho
