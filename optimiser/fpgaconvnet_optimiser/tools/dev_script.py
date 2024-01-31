@@ -35,7 +35,6 @@ import fpgaconvnet_optimiser.proto.fpgaconvnet_pb2
 from fpgaconvnet_optimiser.tools.layer_enum \
         import from_proto_layer_type
 import math
-import pandas as pd
 
 #from fpgaconvnet_optimiser.tools.ee_stage_merger import _strip_outer
 import re
@@ -103,7 +102,7 @@ def optim_init(args):
 def _opt_loops(args,net,bshift=0):
     # setting resource limits and no. runs for branchy optim
     rsc_limits = [0.05, 0.1, 0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
-    full_sa_runs = 10
+    full_sa_runs = 5#10
 
     # set up buffer shifted path
     if bshift > 0:
@@ -179,7 +178,7 @@ def optim_brnchy(args):
     # resetting name before optimisation
     net.name = old_name
     # running opt loop on the initial buffer placement
-    _opt_loops(args,net, bshift=0)
+    _opt_loops(args,net,bshift=0)
     # return net copy before exit split
     return net_cpy
 
@@ -329,6 +328,8 @@ def combine_network_sections(args, ee1_data, eef_data,
     eef_len = len(eef_data["report_name"])
     # very basic memoisation to reduce parse time
     intr_buff_memo = {}
+    # queue size default to prevet deadlock
+    qs_default = 16
     for ee1_idx in range(ee1_len):
         for eef_idx in range(eef_len):
             ee1_thru = ee1_data["throughput"][ee1_idx]
@@ -352,7 +353,9 @@ def combine_network_sections(args, ee1_data, eef_data,
                 rsc_sums[rn]["val"] = rsc_sum
                 res_percent = rsc_sum/float(platform_dict[rn])
                 rsc_sums[rn]["pc"] = res_percent
-                combined_dict[rn].append(res_percent)
+                # store the resources used
+                combined_dict[rn].append(rsc_sums[rn]["pc"])
+
             # get limiting resource
             # NOTE - only selects ONE max (if there are more then might trigger BRAM calc)
             rsc_max_name = max(rsc_sums, key=lambda x: rsc_sums[x]["pc"])
@@ -368,10 +371,12 @@ def combine_network_sections(args, ee1_data, eef_data,
             combined_dict["resource_max"].append(rsc_max_pc)
             combined_dict["limiting_resource"].append(rsc_max_name)
 
-            q_depth=1
+            q_depth=qs_default
             # If BRAM is the limiting resource,
             # use minimum buffer size(accounted for)
-            min_delay=0
+            # NOTE minimum accounted for in current buffer model
+            # any previously generated values will not be accurate!
+            min_delay=qs_default*1280 #FIXME - assuming buffer1, no coarse
             if rsc_max_name != "BRAM":
                 # get bram allowance
                 bram_allw = intr_buffer.get_bram_allowance(
@@ -410,17 +415,20 @@ def combine_network_sections(args, ee1_data, eef_data,
                     # memo shape list
                     intr_buff_memo[path] = input_shape
 
-                # get batch size?
+                # get batch size
                 batch_size = int(ee1_ptn.batch_size)
                 # get new bram usage and q_depth
                 bram, min_delay, q_depth = intr_buffer.get_buffer_size(
-                    intr_buff_memo[path],batch_size,bram_allw)
-                # NOTE if some rsc AND bram are max limiting rsc then q depth might be 0
+                    intr_buff_memo[path],batch_size,bram_allw,default_size=qs_default)
+                ## NOTE if some rsc AND bram are max limiting rsc then q depth might be 0
                 if q_depth == 0:
-                    q_depth=1 # set to 1 because of default buffer sizing
+                    raise ValueError(f"{q_depth}, {rsc_max_name}")
+                #    q_depth=qs_default # set to 1 because of default buffer sizing - setting to 16 for default buffer
+
                 # update combined bram usage
-                # NOTE ADD ME BACK
                 combined_dict["BRAM"][-1] = (bram_usage+bram)/float(platform_dict["BRAM"])
+
+
             # state service time metrics for stage 2
             # TODO scale to multiple stages
             # compute the new throughput for the comb stages
@@ -697,39 +705,29 @@ def gen_graph(args):
 
                 comb_rn=combined_data["report_name"][pareto_comb_mask][srt_comb_idx]
 
-                #with open(os.path.join(args.output_path,'baseline_rpt.txt'), 'w') as f:
-                #    f.write("###### BASELINE REPORT NAMES #####\n")
-                #    for rn,rsc_thr in zip(base_rn, base_xy):
-                #        f.write("report name:"+rn+"\n")
-                #        f.write("xy:"+str(rsc_thr)+"\n")
-
                 #comb_rn = comb_rn.T
-                with open(os.path.join(args.output_path,'combined_rpt_p{}.txt'.format(round((eef_frac)*100))), 'w') as f:
-                    f.write("###### COMBINED REPORT NAMES #####\n")
-                    for rn,rsc_thr in zip(comb_rn, comb_xy):
-                        f.write(f"report name:{rn} \n")
-                        f.write(f"xy:{rsc_thr} \n")
+                #with open(os.path.join(args.output_path,'combined_rpt_p{}.txt'.format(round((eef_frac)*100))), 'w') as f:
+                #    f.write("###### COMBINED REPORT NAMES #####\n")
+                #    for rn,rsc_thr in zip(comb_rn, comb_xy):
+                #        f.write(f"report name:{rn} \n")
+                #        f.write(f"xy:{rsc_thr} \n")
 
-                comb_ee1=combined_data["ee1_throughput"][pareto_comb_mask][srt_comb_idx]
-                comb_eef=combined_data["eef_throughput"][pareto_comb_mask][srt_comb_idx]
-                # changing scaled thrupt for traffic intensity
-                comb_rho=combined_data["throughput_rho"][pareto_comb_mask][srt_comb_idx]
-                comb_all = np.vstack((comb_x,comb_y, comb_ee1,comb_eef,comb_rho)).T
+                #comb_ee1=combined_data["ee1_throughput"][pareto_comb_mask][srt_comb_idx]
+                #comb_eef=combined_data["eef_throughput"][pareto_comb_mask][srt_comb_idx]
+                ## changing scaled thrupt for traffic intensity
+                #comb_rho=combined_data["throughput_rho"][pareto_comb_mask][srt_comb_idx]
+                #comb_all = np.vstack((comb_x,comb_y, comb_ee1,comb_eef,comb_rho)).T
 
                 #NOTE can't put strings in numpy array for savetxt
-                #comb_all_proto2 = comb_all_proto.astype(str)
-                #print("proto shape", comb_all_proto2.shape)
-                #comb_all = np.concatenate( (comb_all_proto2, comb_rn), axis=1)
-                #print("comb all", comb_all.shape)
 
                 #save to csv for latex pgfplots
                 np.savetxt(os.path.join(args.output_path,
                             'Opt_{}_curve.csv'.format(str(int(100*eef_frac ))) ),
                         comb_xy,delimiter=',')
 
-                np.savetxt(os.path.join(args.output_path,
-                            'INVESTIGATION_Opt_{}_curve.csv'.format(str(int(100*eef_frac ))) ),
-                        comb_all,delimiter=',')
+                #np.savetxt(os.path.join(args.output_path,
+                #            'INVESTIGATION_Opt_{}_curve.csv'.format(str(int(100*eef_frac ))) ),
+                #        comb_all,delimiter=',')
 
                 #plot the pareto front with a line
                 comb_col = "#9a57FF"
@@ -813,7 +811,7 @@ def gen_graph(args):
 def cli():
     parser = argparse.ArgumentParser(description="script for running experiments")
     parser.add_argument('--expr',
-            choices=['opt_brn','opt', 'gen_graph'],
+            choices=['opt_brn','opt', 'gen_graph','opt_brn_buffshuff'],
             help='for experiments')
 
     parser.add_argument('--save_name', type=str, help='save name for json file or graph')

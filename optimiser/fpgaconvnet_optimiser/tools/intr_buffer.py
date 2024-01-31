@@ -16,45 +16,67 @@ def get_bram_allowance(max_rsc_pc, bram_usage, platform_bram):
 # returns bram (and equivalent min delay), q depth
 def get_buffer_size(input_shape,batch_size,
                     bram_available,
-                    zbrd_flag=True):
+                    zbrd_flag=True,
+                    default_size=16):
     # should deduct much smaller results buffer
     # input_shape is the rows,cols,chans of intermediate feature map
-    # batch_size - for small networks might be better to jsut max out
+    # batch_size - for small networks might be better to just max out
     # bram_used - list of stages and their predicted bram utilisaiton
     # bram_total - from the board info, how much total available (under constraints)
     # should have flag for board type (older boards require nearset pow2)
-    fm_size = input_shape[0]*input_shape[1]*input_shape[2] / input_shape[3]
+    coarse_factor = input_shape[3]
+    # row, col, chan
+    fm_size = input_shape[0]*input_shape[1]*(input_shape[2]/coarse_factor)
+
     if zbrd_flag:
+        # calculate currently used BRAM for min val
+        default_bram = 2**math.ceil(math.log2((default_size*fm_size)/1024)) #* coarse_factor
+        useable_bram = bram_available/float(coarse_factor) + default_bram
         # for very close to bram limit
-        if bram_available == 0:
-            return 0, 0, 1
-        max_bram_size = 2**math.floor(math.log2(bram_available/float(input_shape[3])))
+        if useable_bram < 1:
+            return 0, default_size*fm_size, default_size
+        # max bram per coarse factor
+        # zedboard needs nearest pow2
+        max_bram_size = 2**math.floor(math.log2(math.floor(useable_bram)))
+
     else:
+        # calculate currently used BRAM for min val
+        default_bram = math.ceil((default_size*fm_size)/1024)
+        useable_bram = bram_available/float(coarse_factor) + default_bram
         # for very close to bram limit
-        if bram_available == 0:
-            return 0, 0, 1
-        max_bram_size = math.floor(bram_available/float(input_shape[3]))
+        if bram_available < 1:
+            return 0, default_size*fm_size, default_size
+        # calculate currently used BRAM for min val
+        max_bram_size = math.floor(useable_bram)
+
     # NOTE assumes 16bits data width
     q_depth = math.floor((max_bram_size*1024)/fm_size)
     # for very close to bram limit
-    if q_depth == 0:
-        return 0, 0, 1
+    if q_depth < 1:
+        return 0, default_size*fm_size, default_size
     # recalc additional bram used
-    # calcs value for 1 instance (coarse-1) remaining
-    bram = 2**math.ceil(math.log2((q_depth*fm_size)/1024))
+
+    if zbrd_flag:
+        # calcs value for 1 instance, (coarse-1 remaining )
+        fullq_bram_per_coarse = 2**math.ceil(math.log2((q_depth*fm_size)/1024))
+    else:
+        fullq_bram_per_coarse = math.ceil((q_depth*fm_size)/1024)
+    # this is the net increase in BRAM usage
+    bram_per_coarse = fullq_bram_per_coarse - default_bram
+
     # FIXME total bram consumption will be slightly larger
     # IO fifos not included in model, smaller buffer not factored in
-    if bram >= bram_available: #max_bram_size:
+    if bram_per_coarse >= useable_bram:
         q_depth-=1
         # for very close to bram limit
-        if q_depth == 0:
-            return 0, 0, 1
-        bram = 2**math.ceil(math.log2((q_depth*fm_size)/1024))
-        #raise ValueError(f"BRAM calc mismatch. bram:{bram}, max:{max_bram_size}")
+        if q_depth < 1:
+            return 0, default_size*fm_size, default_size
+        raise ValueError(f"{q_depth}, {bram_per_coarse}, {useable_bram}, {bram_available}")
+
     # calc min delay (include 16 min fms)
-    min_delay = fm_size*q_depth
+    min_delay = fm_size*(q_depth)
     # re-scale the bram use by coarse factor (separate buffers)
-    return bram*input_shape[3], min_delay, q_depth
+    return bram_per_coarse*coarse_factor, min_delay, q_depth
 
 ### MG1K Smith approximation of throughput dependent on q size
 def get_svt_coef(svt_ls,svt_probs):
