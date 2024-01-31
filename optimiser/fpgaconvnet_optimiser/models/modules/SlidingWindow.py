@@ -17,7 +17,7 @@ from typing import Union, List
 from dataclasses import dataclass, field
 
 from fpgaconvnet_optimiser.models.modules import Module
-from fpgaconvnet_optimiser.tools.resource_model import bram_memory_resource_model, bram_stream_resource_model
+from fpgaconvnet_optimiser.tools.resource_model import bram_memory_resource_model, bram_stream_resource_model,queue_lutram_resource_model,bram_array_resource_model
 
 @dataclass
 class SlidingWindow(Module):
@@ -163,15 +163,28 @@ class SlidingWindow(Module):
         if coef == None:
             coef = self.rsc_coef
         # get the line buffer BRAM estimate
-        line_buffer_depth = (self.cols+self.pad_left+self.pad_right)*self.channels+1
-        line_buffer_bram = (self.kernel_size[0]-1) * bram_stream_resource_model(line_buffer_depth, self.data_width)
+        line_buffer_depth = (self.cols+self.pad_left+self.pad_right)*self.channels #+1
+        line_bram_est = bram_array_resource_model(line_buffer_depth, self.data_width, 'fifo')
+        line_buffer_bram = (self.kernel_size[0]-1) * line_bram_est
+        if line_buffer_bram == 0:
+            # below vivado bram threshold, using lutram
+            line_buffer_lutram = (self.kernel_size[0]-1) * queue_lutram_resource_model(line_buffer_depth, self.data_width)
+        else:
+            line_buffer_lutram = 0
+
         # get the window buffer BRAM estimate
-        window_buffer_depth = self.channels+1
-        window_buffer_bram = self.kernel_size[0]*(self.kernel_size[1]-1) * bram_stream_resource_model(window_buffer_depth, self.data_width)
+        window_buffer_depth = self.channels #+1
+        window_bram_est = bram_array_resource_model(window_buffer_depth, self.data_width, 'fifo')
+        window_buffer_bram = self.kernel_size[0]*(self.kernel_size[1]-1) * window_bram_est
+        if window_buffer_bram == 0:
+            window_buffer_lutram = self.kernel_size[0]*(self.kernel_size[1]-1)*queue_lutram_resource_model(window_buffer_depth, self.data_width)
+        else:
+            window_buffer_lutram = 0
         # get the linear model estimation
         rsc = Module.rsc(self,coef)
         # add the bram estimation
         rsc["BRAM"] = line_buffer_bram + window_buffer_bram
+        rsc["LUT"] += (line_buffer_lutram + window_buffer_lutram)
         # return the resource usage
         return rsc
 
