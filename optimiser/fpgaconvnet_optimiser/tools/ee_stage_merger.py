@@ -6,7 +6,8 @@ import json
 from fpgaconvnet_optimiser.tools.layer_enum import LAYER_TYPE
 import fpgaconvnet_optimiser.proto.fpgaconvnet_pb2
 from fpgaconvnet_optimiser.tools.layer_enum \
-        import from_proto_layer_type
+        import from_proto_layer_type, to_proto_layer_type
+from fpgaconvnet_optimiser.models.layers import SqueezeLayer
 
 import copy
 import os
@@ -16,6 +17,8 @@ from google.protobuf.json_format import MessageToJson
 
 import math
 import re
+
+import pandas as pd
 
 sys.path.append(os.environ.get("FPGACONVNET_OPTIMISER"))
 sys.path.append(os.environ.get("FPGACONVNET_HLS"))
@@ -38,7 +41,6 @@ def exit_fusion(args,ee1,eef,output_name):
     for lyr in out0.layers:
         lyr_type = from_proto_layer_type(lyr.type)
 
-
         if lyr.streams_out[0].name == "out":
             if lyr_type == LAYER_TYPE.Buffer:
                 print("found buffer to late stage")
@@ -60,43 +62,95 @@ def exit_fusion(args,ee1,eef,output_name):
                 lyr.node_out.pop()
                 lyr.node_out.append("brn_exit")
 
+    def _update_stream_info(stream,name,ctrl=False,split=False):
+        stream.name = name
+        stream.ctrl = ctrl
+        stream.split = split
+        return
+
     # Little helper function to edit io for changing layers
-    def _connect_layers(input_layer,output_layer, out_stream_index=0):
+    def _connect_layers(partition,input_layer,output_layer, out_stream_index=0):
             stream_name = str(input_layer.name)+"_"+str(output_layer.name)
             # construct new input stream (from input_layer)
             assert len(output_layer.streams_in) == 1,\
                     "multiple input streams for output layer (2nd stage)"
-            # coarse should be the same, FIXME add squeeze if not
-            assert output_layer.parameters.coarse_in == \
-                    input_layer.parameters.coarse_out,\
-                    "COARSE DIFFERS BETWEEN BUFFER AND 2nd stage"
+
+            #stream names are the same UNLESS adding squeeze
+            stream_name_in = stream_name
+            stream_name_out = stream_name
+            # same process for updating node in/out
+            name_in = str(input_layer.name)
+            name_out = str(output_layer.name)
+            # check if there is a coarse layer mismatch
+            if output_layer.parameters.coarse_in != \
+                    input_layer.parameters.coarse_out:
+                # create new partition layer
+                sq_layer = partition.layers.add()
+                # update squeeze layer with connection to ip and op layer
+                sq_layer.name = "_".join([input_layer.name,
+                                          "squeeze",
+                                          output_layer.name])
+                sq_layer.type = to_proto_layer_type(LAYER_TYPE.Squeeze)
+                # create default squeeze model with params
+                sq_model = SqueezeLayer(
+                    input_layer.parameters.rows_out,
+                    input_layer.parameters.cols_out,
+                    input_layer.parameters.channels_out,
+                    input_layer.parameters.coarse_out,
+                    output_layer.parameters.coarse_in
+                )
+                # streams
+                sq_stream_in = sq_layer.streams_in.add()
+                stream_name_out = str(input_layer.name)+"_"+str(sq_layer.name)
+                _update_stream_info(sq_stream_in,stream_name_out,False,False)
+                sq_stream_out = sq_layer.streams_out.add()
+                stream_name_in = str(sq_layer.name)+"_"+str(output_layer.name)
+                _update_stream_info(sq_stream_out,stream_name_in,False,False)
+                # node in list
+                sq_layer.node_in.append(name_in)
+                # node out list
+                sq_layer.node_out.append(name_out)
+                # squeeze is now inbetween the layers
+                name_in = str(sq_layer.name)
+                name_out = str(sq_layer.name)
+                # layer parameters
+                sq_model.layer_info(sq_layer.parameters,
+                                    batch_size=partition.batch_size)
+
+            ### Update output layer information
             if out_stream_index > 0: # expecting multiple inputs to layer
+                # generate another place for a new stream
                 new_stream_in = copy.deepcopy(output_layer.streams_in[0])
+                # add stream to multi-input layer (when provided)
                 output_layer.streams_in.append(new_stream_in)
-            output_layer.streams_in[out_stream_index].name   = stream_name
-            output_layer.streams_in[out_stream_index].ctrl   = False
-            output_layer.streams_in[out_stream_index].split  = False
+            # update the stream information at the selected input port
+            _update_stream_info(output_layer.streams_in[out_stream_index],
+                                stream_name_in,False,False)
             # can't assign with list because of protobuf FIXME
             if output_layer.node_in[0] == str(output_layer.name):
+                # if the layer loops back to itself (terminal)
+                # then remove, ready to be updated
                 output_layer.node_in.pop()
-            output_layer.node_in.append(str(input_layer.name))
+            # update the node in info with the name of the preceding layer
+            output_layer.node_in.append(name_in)
+
+            ### Update input layer information
             # change input_layer output stream, change node_out etc.
             assert len(input_layer.streams_out) == 1, \
                     "multiple output streams for 1st stage buffer"
-            input_layer.streams_out[0].name   = stream_name
-            input_layer.streams_out[0].ctrl   = False
-            input_layer.streams_out[0].split  = False
+            _update_stream_info(input_layer.streams_out[0],
+                                stream_name_out,False,False)
             # can't assign with list because of protobuf FIXME
             if input_layer.node_out[0] == str(input_layer.name):
                 input_layer.node_out.pop()
-            input_layer.node_out.append(str(output_layer.name))
+            input_layer.node_out.append(name_out)
 
     for eef_lyr in eef_prt.layers:
         #if its the input node then change the input to the buffer of ee1
         if eef_lyr.streams_in[0].name == "in":
             print("found input node for eef")
             new_ip_lyr = copy.deepcopy(eef_lyr)
-            _connect_layers(ebuff, new_ip_lyr, 0)
+            _connect_layers(out0, ebuff, new_ip_lyr, 0)
             # add connected version of 2nd stage input layer
             out0.layers.append(new_ip_lyr)
             continue
@@ -104,7 +158,7 @@ def exit_fusion(args,ee1,eef,output_name):
         if eef_lyr.streams_out[0].name == "out":
             print("found output node for eef")
             new_op_lyr = copy.deepcopy(eef_lyr)
-            _connect_layers(new_op_lyr, emerge, 1)
+            _connect_layers(out0, new_op_lyr, emerge, 1)
             # add connected version of 2nd stage input layer
             out0.layers.append(new_op_lyr)
             continue
@@ -138,9 +192,9 @@ if __name__ == "__main__":
     parser.add_argument('-pf', '--json_pathf', metavar='PATH', required=False,
             help='Path to network eef json file (.json)')
 
-    parser.add_argument('-c', '--combined_path', metavar='PATH', required=False,
+    parser.add_argument('-cp', '--combined_path', metavar='PATH', required=False,
             help='Path to the optimal combined network stages')
-    parser.add_argument('-j', '--json_path', metavar='PATH', required=False,
+    parser.add_argument('-jp', '--json_path', metavar='PATH', required=False,
             help='Path to the separate json files')
 
     parser.add_argument('-op','--output_path', metavar='PATH', required=True,
@@ -167,42 +221,39 @@ if __name__ == "__main__":
         exit_fusion(args, ee1, eef, output_name)
     else:
         # parser the combined file and generate all jsons
-        with open(args.combined_path, 'r') as f:
-            lines = f.readlines()
-            entries = (len(lines)-1)//3
-            print(entries)
-            entr = [lines[entry*3 : entry*3 +3] for entry in range(1,entries)]
+        # Updated to parsing the csv file
+        df = pd.read_csv(args.combined_path)
+        rp_names = df['report_name'].tolist()
+        thru_ls = df['throughput'].tolist()
+        rsc_ls = df['resource_max'].tolist()
+        print(rp_names, rsc_ls, thru_ls)
 
-        for e in entr:
-            # fixup entry 0 - coords on graph
-            e[0] = _strip_outer(e[0], '[',']')
-            coords = e[0].split()
-            thru = math.floor(float(coords[1]))
-            rsc = math.floor(float(coords[0])*100)
-            e[0] = [rsc,thru]
+        for nm, r, t in zip(rp_names, rsc_ls, thru_ls):
+            # pull rsc and thruput nums for name
+            thru = math.floor(float(t))
+            rsc = math.floor(float(r)*100)
+            #e[0] = [rsc,thru]
 
             print("Throughput:{} Resources:{}".format(thru, rsc))
 
+            # split report name lines
+            e = nm.split('\n')
+
             # fixup entry 1 - ee1 report
-            e[1] = _strip_outer(e[1], "'", "'")
+            e[0] = _strip_outer(e[0], "'", "'")
             # remove 'report_'
-            e[1] = e[1][7:]
+            e[0] = e[0][7:]
             # finds the resource lim specified in the file name
-            rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)", e[1]).group()
-            e[1] = os.path.join(args.json_path,"post_optim-rsc{}p/{}".format(rsc_lim,e[1]))
+            rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)", e[0]).group()
+            j1 = os.path.join(args.json_path,"post_optim-rsc{}p/{}".format(rsc_lim,e[0]))
 
             # fixup entry 2 - eef report
-            e[2] = _strip_outer(e[2], "'", "'")
-            e[2] = e[2][7:]
-            rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)", e[2]).group()
-            e[2] = os.path.join(args.json_path,"post_optim-rsc{}p/{}".format(rsc_lim,e[2]))
-            print(e)
+            e[1] = _strip_outer(e[1], "'", "'")
+            e[1] = e[1][7:]
+            rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)", e[1]).group()
+            jf = os.path.join(args.json_path,"post_optim-rsc{}p/{}".format(rsc_lim,e[1]))
 
-        # generate the combined file
-        for jlist in entr:
-            j1,jf = jlist[1],jlist[2]
-            rsc = jlist[0][0]
-            thru = jlist[0][1]
+            # open the different files
             ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
             with open(j1,'r') as f:
                 json_format.Parse(f.read(), ee1)
