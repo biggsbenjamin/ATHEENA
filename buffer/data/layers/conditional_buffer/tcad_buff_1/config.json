@@ -1,0 +1,23 @@
+{
+    "buffer_depth" : 0,
+    "batch_size": 1024,
+    "rows_in": 16,
+    "cols_in": 16,
+    "channels_in": 5,
+    "coarse": 1,
+    "coarse_in": 1,
+    "coarse_out": 1,
+    "ctrledge": 24,
+    "drop_mode": true,
+    "rows_out": 16,
+    "cols_out": 16,
+    "channels_out": 5,
+    "data_t": {
+        "width": 16,
+        "binary_point": 8
+    },
+    "min_delay": 1280,
+    "sample_id_width": 16,
+    "stall_delay": 0,
+    "description": "buffer 1, chonky boi, 50rsc, 1 plus default 16"
+}
