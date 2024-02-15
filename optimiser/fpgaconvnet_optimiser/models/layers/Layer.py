@@ -284,6 +284,7 @@ class Layer:
         return sum([ self.modules[module].wait_depth() for module in self.modules ])
 
     def resource(self):
+        raise NotImplementedError(f'No resource for layer with modules: {list(self.modules.keys())}')
         return {
             "LUT"   : 0,
             "FF"    : 0,
