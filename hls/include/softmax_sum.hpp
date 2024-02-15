@@ -165,56 +165,94 @@ void softmax_sum(
 
     //const unsigned int partial_num = 8;
     
+
+    /// HIGH THROUGHPUT VERSION ///
     // FIXME works but II of 8
     // FIXME UPDATE - VERSION WORKS BUT ONLY FOR 10 classes
     //sfmsm_t cache,sum,tmp;
-    sfmsm_t cache[2],sum;
-    batch_t b_id;
-    //float tmp_f;//, partial[partial_num];
-    //float partial[partial_num];
-    //#pragma HLS ARRAY_PARTITION variable=partial complete dim=0
+    //sfmsm_t cache[2],sum;
+    //batch_t b_id;
+    ////float tmp_f;//, partial[partial_num];
+    ////float partial[partial_num];
+    ////#pragma HLS ARRAY_PARTITION variable=partial complete dim=0
 
-    sfmsm_t tree[9];
-    //unsigned int partial_sum_count = (px_lim+(px_lim%partial_num))/partial_num;
-    //printf("partial sum count:%d\n",partial_sum_count);
+    //sfmsm_t tree[9];
+    ////unsigned int partial_sum_count = (px_lim+(px_lim%partial_num))/partial_num;
+    ////printf("partial sum count:%d\n",partial_sum_count);
+
+    //batch_loop: 
+    //for (unsigned long batch_index=0;batch_index<batch_size;batch_index++ ) {
+    //    //for (int offset=0;offset<partial_num;offset++) {
+    //    //    #pragma HLS unroll
+    //    //    partial[offset] = 0.0f;
+    //    //}
+    //    //pixel_loop: for(unsigned long px_idx=0;px_idx<px_lim+(px_lim%partial_num);px_idx++) {
+    //    //pixel_loop: for(unsigned long px_idx=0;px_idx<px_lim;px_idx++) {
+    //    #pragma HLS PIPELINE II=10 // II 1 not possible (fp add)
+    //    cache[0] = in.read();
+    //    b_id = cache[0].batchid;
+    //    cache[1] = in.read();
+    //    tree[0].data = cache[0].data + cache[1].data;
+
+    //    cache[0] = in.read();
+    //    cache[1] = in.read();
+    //    tree[1].data = cache[0].data + cache[1].data;
+
+    //    cache[0] = in.read();
+    //    cache[1] = in.read();
+    //    tree[2].data = cache[0].data + cache[1].data;
+    //    cache[0] = in.read();
+    //    cache[1] = in.read();
+    //    tree[3].data = cache[0].data + cache[1].data;
+    //    cache[0] = in.read();
+    //    cache[1] = in.read();
+    //    tree[4].data = cache[0].data + cache[1].data;
+
+    //    tree[5].data = tree[0].data + tree[1].data;
+    //    tree[6].data = tree[2].data + tree[3].data;
+
+    //    tree[7].data = tree[5].data + tree[4].data;
+    //    tree[8].data = tree[6].data + tree[7].data;
+
+    //    sum.batchid = b_id;
+    //    sum.data = tree[8].data;
+    //    out.write(sum);
+    /// HIGH THROUGHPUT VERSION ///
+
+
+    /// Reduced pipeline depth VERSION ///
+    sfmsm_t cache,sum,tmp;
 
     batch_loop: 
     for (unsigned long batch_index=0;batch_index<batch_size;batch_index++ ) {
-        //for (int offset=0;offset<partial_num;offset++) {
+        pixel_loop: for(unsigned long px_idx=0;px_idx<px_lim;px_idx++) {
+            cache=in.read();
+            //tmp.data = sum.data + cache.data;
+
+            if (px_idx == 0){
+                //restart sum at the beginning of new shape
+                sum.data = cache.data;
+                sum.batchid=cache.batchid;
+            } else {
+                //sum.data = tmp.data;
+                sum.data += cache.data;
+            }
+        }
+        out.write(sum);
+    }
+
+        //// final accumulation of partial sums
+        //for (int fa_idx=1; fa_idx<partial_num; fa_idx++) {
         //    #pragma HLS unroll
-        //    partial[offset] = 0.0f;
+        //    partial[0] += partial[fa_idx];
         //}
-        //pixel_loop: for(unsigned long px_idx=0;px_idx<px_lim+(px_lim%partial_num);px_idx++) {
-        //pixel_loop: for(unsigned long px_idx=0;px_idx<px_lim;px_idx++) {
-        #pragma HLS PIPELINE II=10 // II 1 not possible (fp add)
-        cache[0] = in.read();
-        b_id = cache[0].batchid;
-        cache[1] = in.read();
-        tree[0].data = cache[0].data + cache[1].data;
-
-        cache[0] = in.read();
-        cache[1] = in.read();
-        tree[1].data = cache[0].data + cache[1].data;
-
-        cache[0] = in.read();
-        cache[1] = in.read();
-        tree[2].data = cache[0].data + cache[1].data;
-        cache[0] = in.read();
-        cache[1] = in.read();
-        tree[3].data = cache[0].data + cache[1].data;
-        cache[0] = in.read();
-        cache[1] = in.read();
-        tree[4].data = cache[0].data + cache[1].data;
-
-        tree[5].data = tree[0].data + tree[1].data;
-        tree[6].data = tree[2].data + tree[3].data;
-
-        tree[7].data = tree[5].data + tree[4].data;
-        tree[8].data = tree[6].data + tree[7].data;
-
-        sum.batchid = b_id;
-        sum.data = tree[8].data;
-
+        //// assign final sum and batch id
+        //sum.data = partial[0];
+        //sum.batchid = b_id;
+        
+    /// Reduced pipeline depth VERSION ///
+ 
+        /// TMP VERSION ///
             //// read in new value every cycle
             //if (px_idx < px_lim) {
             //    cache = in.read();
@@ -240,29 +278,9 @@ void softmax_sum(
             //
             ////printf("partial0:%f, partial1:%f, partial2:%f, partial2:%f\n",
             ////        partial[0],partial[1],partial[2],partial[3]);
+            //out.write(sum);
+        /// TMP VERSION ///
 
-        //    // FIXME working but crap version
-        //    cache=in.read();
-        //    tmp.data = sum.data + cache.data;
-
-        //    if (px_idx == 0)
-        //        //restart sum at the beginning of new shape
-        //        sum.data = cache.data;
-        //    else 
-        //        sum.data = tmp.data;
-        //    sum.batchid=cache.batchid;
-        //}
-        //// final accumulation of partial sums
-        //for (int fa_idx=1; fa_idx<partial_num; fa_idx++) {
-        //    #pragma HLS unroll
-        //    partial[0] += partial[fa_idx];
-        //}
-        //// assign final sum and batch id
-        //sum.data = partial[0];
-        //sum.batchid = b_id;
-
-        out.write(sum);
-    }
 }
 
 #endif

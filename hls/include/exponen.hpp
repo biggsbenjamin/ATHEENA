@@ -39,7 +39,7 @@ void exponen(
     exp_t cache;
     exp_f_t out_var;
     for(unsigned long pixel_index=0 ; pixel_index < batch_size*rows*cols*channels ; pixel_index++) {
-#pragma HLS PIPELINE II=1 rewind 
+//#pragma HLS PIPELINE II=1 rewind 
         /*exp_t tmp, res;
         tmp = exp_t{ in.read() };
         

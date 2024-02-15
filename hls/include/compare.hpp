@@ -8,9 +8,6 @@
   */
 template<
     unsigned int BATCH_SIZE,
-    //unsigned int ROWS,
-    //unsigned int COLS,
-    //unsigned int CHANNELS,
     typename cmp_t,
     typename ctrl_t
 >
@@ -27,11 +24,8 @@ void compare(
 #pragma HLS INLINE OFF 
 
     const unsigned int batch_size   = BATCH_SIZE;
-    //const unsigned int rows         = ROWS;
-    //const unsigned int cols         = COLS;
-    //const unsigned int channels     = CHANNELS;
     const float threshold = thr_val[0];
-    const unsigned int depth_in = batch_size + 16;
+    const unsigned int depth_in = 16; //batch_size + 16;
  
 #pragma HLS STREAM variable=max_in depth=depth_in
 #pragma HLS STREAM variable=thr_in depth=depth_in
@@ -50,7 +44,7 @@ void compare(
     ctrl_t out_var;
     
     batch_loop: for(unsigned long b_index=0;b_index<batch_size;b_index++) {
-        #pragma HLS PIPELINE II=1
+//#pragma HLS PIPELINE II=1
         thr_mult = thr_in.read(); //this one will arrive later
         thr_res.data = thr_mult.data * threshold;
         cmp_max = max_in.read();

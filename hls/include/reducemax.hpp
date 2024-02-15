@@ -221,61 +221,61 @@ void reducemax(
     //>(comb,out);
 
     // FIXME simple to code version but bad latency
-    //rdmx_t cache,tmp;
-    ////float cache,tmp;
+    rdmx_t cache,tmp, max_val;
+    //float cache,tmp;
 
-    //batch_loop: for(unsigned long batch_index=0;batch_index<batch_size;batch_index++) {
-    //    pixel_loop: for (unsigned long px_index = 0; px_index < px_lim; px_index++) {
-    //        #pragma HLS PIPELINE II=1 rewind
-    //        cache = in.read();
-    //        //std::cout<<"rdmx,in cache: "<<cache.data<<std::endl;
-    //        if (px_index == 0) {
-    //            tmp.data = cache.data;
-    //        } else {
-    //            tmp.data = (cache.data > tmp.data ) ? cache.data : tmp.data;
-    //        }
-    //        tmp.batchid = cache.batchid;
-    //    }
-    //    //std::cout<<"rdmx,out: "<<tmp.data<< " ID:"<<tmp.batchid<<std::endl;
-    //    out.write(tmp);
-    //}
+    batch_loop: for(unsigned long batch_index=0;batch_index<batch_size;batch_index++) {
+        pixel_loop: for (unsigned long px_index = 0; px_index < px_lim; px_index++) {
+            //#pragma HLS PIPELINE II=1 rewind
+            cache = in.read();
+            //tmp.data = (cache.data > max_val.data ) ? cache.data : max_val.data;
+
+            if (px_index == 0) {
+                max_val.data = cache.data;
+                max_val.batchid = cache.batchid;
+            } else {
+                max_val.data = (cache.data > max_val.data ) ? cache.data : max_val.data; //tmp.data;
+            }
+        }
+        //std::cout<<"rdmx,out: "<<tmp.data<< " ID:"<<tmp.batchid<<std::endl;
+        out.write(max_val);
 
     // FIXME more resources and fixed input size of 10 classes
-    rdmx_t max_val, cache[2], tree[9];
-    batch_t b_id;
+    //rdmx_t max_val, cache[2], tree[9];
+    //batch_t b_id;
 
-    batch_loop: 
-    for (unsigned long batch_index=0;batch_index<batch_size;batch_index++ ) {
-        #pragma HLS PIPELINE II=10 // II 1 not possible (fp cmp)
-        cache[0] = in.read();
-        b_id = cache[0].batchid;
-        cache[1] = in.read();
-        tree[0].data = (cache[0].data > cache[1].data) ? cache[0].data : cache[1].data;
+    //batch_loop: 
+    //for (unsigned long batch_index=0;batch_index<batch_size;batch_index++ ) {
+    //    #pragma HLS PIPELINE II=10 // II 1 not possible (fp cmp)
+    //    cache[0] = in.read();
+    //    b_id = cache[0].batchid;
+    //    cache[1] = in.read();
+    //    tree[0].data = (cache[0].data > cache[1].data) ? cache[0].data : cache[1].data;
 
-        cache[0] = in.read();
-        cache[1] = in.read();
-        tree[1].data = (cache[0].data > cache[1].data) ? cache[0].data : cache[1].data;
+    //    cache[0] = in.read();
+    //    cache[1] = in.read();
+    //    tree[1].data = (cache[0].data > cache[1].data) ? cache[0].data : cache[1].data;
 
-        cache[0] = in.read();
-        cache[1] = in.read();
-        tree[2].data = (cache[0].data > cache[1].data) ? cache[0].data : cache[1].data;
-        cache[0] = in.read();
-        cache[1] = in.read();
-        tree[3].data = (cache[0].data > cache[1].data) ? cache[0].data : cache[1].data;
-        cache[0] = in.read();
-        cache[1] = in.read();
-        tree[4].data = (cache[0].data > cache[1].data) ? cache[0].data : cache[1].data;
+    //    cache[0] = in.read();
+    //    cache[1] = in.read();
+    //    tree[2].data = (cache[0].data > cache[1].data) ? cache[0].data : cache[1].data;
+    //    cache[0] = in.read();
+    //    cache[1] = in.read();
+    //    tree[3].data = (cache[0].data > cache[1].data) ? cache[0].data : cache[1].data;
+    //    cache[0] = in.read();
+    //    cache[1] = in.read();
+    //    tree[4].data = (cache[0].data > cache[1].data) ? cache[0].data : cache[1].data;
 
-        tree[5].data = (tree[0].data > tree[1].data) ? tree[0].data : tree[1].data;
-        tree[6].data = (tree[2].data > tree[3].data) ? tree[2].data : tree[3].data;
+    //    tree[5].data = (tree[0].data > tree[1].data) ? tree[0].data : tree[1].data;
+    //    tree[6].data = (tree[2].data > tree[3].data) ? tree[2].data : tree[3].data;
 
-        tree[7].data = (tree[5].data > tree[4].data) ? tree[5].data : tree[4].data;
-        tree[8].data = (tree[6].data > tree[7].data) ? tree[6].data : tree[7].data;
+    //    tree[7].data = (tree[5].data > tree[4].data) ? tree[5].data : tree[4].data;
+    //    tree[8].data = (tree[6].data > tree[7].data) ? tree[6].data : tree[7].data;
 
-        max_val.batchid = b_id;
-        max_val.data = tree[8].data;
+    //    max_val.batchid = b_id;
+    //    max_val.data = tree[8].data;
 
-        out.write(max_val);
+    //    out.write(max_val);
     }
 }
 
