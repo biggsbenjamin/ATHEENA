@@ -140,12 +140,12 @@ def gen_buffer_layer(name,param,src_path,header_path, topless=True):
     )
 
     # BUFFER MODULE INIT
-    if param['drop_mode'] == False:
-        dm=False
-        print("drop mode is false")
-    else:
-        print("drop mode is true")
+    if param['drop_mode']:
         dm=True
+        dm_str='true'
+    else:
+        dm=False
+        dm_str='false'
 
     buff = generate.modules.buff.gen_buff_module(
         name+"_buffer",
@@ -166,10 +166,10 @@ def gen_buffer_layer(name,param,src_path,header_path, topless=True):
         buff            =buff
     )
 
-    if param['drop_mode']:
-        dm = 'true'
-    else:
-        dm = 'false'
+    #if param['drop_mode']:
+    #    dm = 'true'
+    #else:
+    #    dm = 'false'
     # header
     buffer_layer_header = buffer_layer_template_header.format(
         name                =name,
@@ -184,7 +184,7 @@ def gen_buffer_layer(name,param,src_path,header_path, topless=True):
         rows_out            =param['rows_out'],
         cols_out            =param['cols_out'],
         channels_out        =param['channels_out'],
-        drop_mode           =dm
+        drop_mode           =dm_str
     )
 
     # top src
