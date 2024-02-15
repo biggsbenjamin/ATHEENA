@@ -303,10 +303,23 @@ proc generate_split_hardware { BOARD PORT_WIDTH FREQ } {
             puts "Found buff: ${lyr}"
             # create layer instances
             set bnum [string trim $lyr "buffer"]
-            lappend ip_cell_list [create_bd_cell -type ip -vlnv \
-                fccm_artifact.co.uk:fpgaconvnet:cond_buffer_${bnum}_80:1.0 ${lyr} ]
-            connect_bd_net -net pl_clk [get_bd_pins ${lyr}/clock] ; # connect clock
-            connect_bd_net -net peripheral_reset [get_bd_pins ${lyr}/reset] ; # connect reset
+            # if buffer0 then do this - FIXME default buffer
+            if {(![string equal $bnum 1])} {
+                lappend ip_cell_list [create_bd_cell -type ip -vlnv \
+                    fccm_artifact.co.uk:fpgaconvnet:cond_buffer_${bnum}_80:1.0 ${lyr} ]
+                connect_bd_net -net pl_clk [get_bd_pins ${lyr}/clock] ; # connect clock
+                connect_bd_net -net peripheral_reset [get_bd_pins ${lyr}/reset] ; # connect reset
+            } else {
+                # if intermediate fm buffer, then pick correctly sized component
+                # make python call to layer to get function
+                set buff_depth [run_python $::env(FPGACONVNET_HLS)/tools/split_hw_helper.py \
+                    [list -p ../$NET.json -pi 0 get_param -n $lyr -pn buffer_depth] ]
+                # the layer should already be imported, now instantiate it
+                lappend ip_cell_list [create_bd_cell -type ip -vlnv \
+                    fccm_artifact.co.uk:fpgaconvnet:cond_buffer_${bnum}_buffer_${buff_depth}_delay:1.0 ${lyr} ]
+                connect_bd_net -net pl_clk [get_bd_pins ${lyr}/clock] ; # connect clock
+                connect_bd_net -net peripheral_reset [get_bd_pins ${lyr}/reset] ; # connect reset
+            }
         }
     }
 
