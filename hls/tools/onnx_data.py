@@ -170,19 +170,18 @@ def validate_output(args):
     for samp_id in g_dat_list[0].keys():
         # compare the values for now
 
-        for idx,(g0,g1,a) in enumerate(zip( g_dat_list[0][samp_id],
-                                            g_dat_list[1][samp_id],
-                                            a_dat[samp_id])):
+        #for idx,(g0,g1,a) in enumerate(zip( g_dat_list[0][samp_id],
+        #                                    g_dat_list[1][samp_id],
+        #                                    a_dat[samp_id])):
+        #    sg0=make_signed(g0,args.data_width)
+        #    sg1=make_signed(g1,args.data_width)
 
-            sg0=make_signed(g0,args.data_width)
-            sg1=make_signed(g1,args.data_width)
+        #    sa=make_signed(a,args.data_width)
 
-            sa=make_signed(a,args.data_width)
+        #    cmpr0 = #(sg0-sa) if (sg0 > sa) else (sa-sg0)
+        #    cmpr1 = #(sg1-sa) if (sg1 > sa) else (sa-sg1)
 
-            cmpr0 = (sg0-sa) if (sg0 > sa) else (sa-sg0)
-            cmpr1 = (sg1-sa) if (sg1 > sa) else (sa-sg1)
-
-            #max_err = max(max_err,cmpr)
+        #    #max_err = max(max_err,cmpr)
 
         #make the values signed for easier reading
         s16_f = np.vectorize(make_signed_16)
@@ -190,9 +189,11 @@ def validate_output(args):
         legdat = s16_f(g_dat_list[1][samp_id])
         adat = s16_f(a_dat[samp_id])
 
+        cmpr0 = np.max(np.absolute(eegdat-adat))
+        cmpr1 = np.max(np.absolute(legdat-adat))
+
         if cmpr0 > errtol.bits_to_signed() and cmpr1 > errtol.bits_to_signed():
-            print(f"ERROR: Difference greater than tolerance.\n \
-                            Values g0:{sg0} g1:{sg1} a:{sa} @ sample:{samp_id}, index:{idx}")
+            print(f"ERROR: Difference greater than tolerance. Values\ng0:{eegdat}\ng1:{legdat}\na:{adat} @ sample:{samp_id}")
             err_tot+=1
         elif cmpr0 > errtol.bits_to_signed():
             #if np.exp(max(eegdat)) >= (sum(np.exp(eegdat))*0.996):
@@ -203,9 +204,13 @@ def validate_output(args):
             #        LEgdat:\t{legdat}")
             LE_cnt+=1
             max_err = max(max_err,cmpr1)
+            if args.verbose:
+                print(f"Late: {samp_id}")
         elif cmpr1 > errtol.bits_to_signed():
             max_err = max(max_err,cmpr0)
             EE_cnt+=1
+            if args.verbose:
+                print(f"Early: {samp_id}")
         else:
             print("ERROR TOO LOW BETWEEN EXITS")
             ee_diff = np.linalg.norm((eegdat - adat))
@@ -217,9 +222,9 @@ def validate_output(args):
 
 
         #NOTE printing stuff for debug etc.
-        if args.verbose:
-            print(f"Signed gold0:{sg0}, gold1:{sg1}, signed actual:{sa}")
-            print(f"\tcompare var: {cmpr}, error total:{err_tot}")
+        #if args.verbose:
+        #    print(f"Signed gold0:{eegdat},\ngold1:{legdat},\nsigned actual:{adat}")
+        #    print(f"compare var: {cmpr0}, {cmpr1}, error total:{err_tot}")
 
     print("Num EE:{} LE:{}".format(EE_cnt, LE_cnt))
 
@@ -310,6 +315,7 @@ class ONNXData:
     #TODO version of load input that takes in folder full of images, maybe randomised
     def load_inputs(self,filepath):
         img_ls = os.listdir(filepath)
+        img_ls = [npfile for npfile in img_ls if npfile.endswith('.npy')]
         img_ls.sort()
 
         np_ls=[]
