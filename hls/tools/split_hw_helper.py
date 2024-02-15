@@ -125,6 +125,17 @@ def get_output(args,prt):
             return
     raise NameError("ERROR: no outputs or something?")
 
+# Returns the output node(s as a list) followed by coarse factor
+def get_param(args, prt):
+    # search through the partition
+    lyr = args.layer_name
+    lyr_obj = get_layer_from_partition(prt, lyr)
+    pname = args.parameter_name
+
+    pval = getattr(lyr_obj.parameters, pname)
+    # result form: layer_parameter_value
+    print(pval)
+
 if __name__ == "__main__":
     #NOTE arguments returned are delineated by spaces, newline
     parser = argparse.ArgumentParser(
@@ -156,6 +167,13 @@ if __name__ == "__main__":
     get_output_p = subparsers.add_parser("get_output",
             help="Get the output layer name")
 
+    #get_layer_param
+    get_param_p = subparsers.add_parser("get_param",
+            help="Get a specific layer parameter")
+    # NOTE using this function to get the buffer_depth for buffer1
+    get_param_p.add_argument("-n","--layer_name", type=str, required=True)
+    get_param_p.add_argument("-pn","--parameter_name", type=str, required=True)
+
     gen_hc_p = subparsers.add_parser("gen_host_code",
             help="Generate the host code for the network")
     gen_hc_p.add_argument("-n","--network_name",type=str,required=True)
@@ -179,6 +197,8 @@ if __name__ == "__main__":
         get_output(args, partitions.partition[args.partition_index])
     elif args.helper_func == 'gen_host_code':
         gen_host_code(args, partitions.partition[args.partition_index])
+    elif args.helper_func == 'get_param':
+        get_param(args, partitions.partition[args.partition_index])
     else:
         raise NotImplementedError(
                 f"ERROR: {args.helper_func} does not exist")
