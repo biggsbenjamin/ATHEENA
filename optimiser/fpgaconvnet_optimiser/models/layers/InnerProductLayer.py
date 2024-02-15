@@ -148,7 +148,6 @@ class InnerProductLayer(Layer):
         }
 
     def resource(self):
-
         fork_rsc    = self.modules['fork'].rsc()
         conv_rsc    = self.modules['conv'].rsc()
         accum_rsc   = self.modules['accum'].rsc()
@@ -166,21 +165,37 @@ class InnerProductLayer(Layer):
         weights_memory_depth = float(self.filters*self.channels_in()*self.rows_in()*\
                 self.cols_in())/float(self.coarse_in*self.coarse_out)
         weights_bram_usage = \
-            bram_memory_resource_model(int(weights_memory_depth), self.weight_width)*\
-            self.coarse_in*self.coarse_out
+            #bram_memory_resource_model(int(weights_memory_depth), self.weight_width)*\
+            #self.coarse_in*self.coarse_out
+            bram_array_resource_model(weights_memory_depth, self.data_width, 'fifo')*\
+                self.coarse_in*self.coarse_out
+        if weights_bram_usage == 0:
+            # below vivado bram threshold, using lutram
+            weights_lutram = queue_lutram_resource_model(weights_memory_depth, self.data_width)
+        else:
+            weights_lutram = 0
 
         # FIXME: sort mem requirements correctly
         bias_memory_depth = float(self.filters*self.rows_in()*\
             self.cols_in())/float(self.coarse_out)
         biases_bram_usage = \
-            bram_memory_resource_model(int(bias_memory_depth), self.biases_width)*self.coarse_out
+            #bram_memory_resource_model(int(bias_memory_depth), self.biases_width)*self.coarse_out
+            bram_array_resource_model(biases_memory_depth, self.biases_width, 'fifo')*\
+                self.coarse_out
+        if biases_bram_usage == 0:
+            # below vivado bram threshold, using lutram
+            biases_lutram = queue_lutram_resource_model(biases_memory_depth, self.data_width)
+        else:
+            biases_lutram = 0
+
         # Total
         return {
             "LUT"  :  fork_rsc['LUT']*self.coarse_in +
                       conv_rsc['LUT']*self.coarse_in*self.coarse_out +
                       accum_rsc['LUT']*self.coarse_in*self.coarse_out +
                       glue_rsc['LUT'] +
-                      bias_rsc['LUT']*self.coarse_out,
+                      bias_rsc['LUT']*self.coarse_out +
+                      weights_lutram + biases_lutram,
             "FF"   :  fork_rsc['FF']*self.coarse_in +
                       conv_rsc['FF']*self.coarse_in*self.coarse_out +
                       accum_rsc['FF']*self.coarse_in*self.coarse_out +

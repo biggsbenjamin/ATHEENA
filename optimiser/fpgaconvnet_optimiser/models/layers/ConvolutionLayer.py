@@ -318,24 +318,40 @@ class ConvolutionLayer(Layer):
         if self.has_bias:
             bias_rsc    = {"LUT" : 0,"BRAM" : 0,"DSP" : 0,"FF" : 0}
 
+        #weights_bram_usage = bram_memory_resource_model(
+        #            int(weight_memory_depth),self.weight_width) * \
+        #        self.coarse_in*self.coarse_out*self.coarse_group*self.fine
+
+        ## bias usage FIXME depth, FIXME bram usage
+        #biases_bram_usage = bram_memory_resource_model(
+        #            int(bias_memory_depth),self.biases_width) * self.coarse_out
+
+        # TODO: add to modules instead
         # weight usage
-        weight_memory_depth = float((self.filters/self.groups)* \
+        weights_memory_depth = float((self.filters/self.groups)* \
                                     self.channels_in()* \
                                     self.kernel_size[0]* \
                                     self.kernel_size[1]) / \
             float(self.fine*self.coarse_in*self.coarse_out*self.coarse_group)
-        weights_bram_usage = bram_memory_resource_model(
-                    int(weight_memory_depth),self.weight_width) * \
-                self.coarse_in*self.coarse_out*self.coarse_group*self.fine
+        weights_bram_usage = \
+            bram_array_resource_model(int(weights_memory_depth), self.data_width, 'fifo')*\
+                self.coarse_in*self.coarse_out
+        if weights_bram_usage == 0:
+            # below vivado bram threshold, using lutram
+            weights_lutram = queue_lutram_resource_model(weights_memory_depth, self.data_width)
+        else:
+            weights_lutram = 0
 
-        # bias usage FIXME depth, FIXME bram usage
-        bias_memory_depth = float(self.filters) / float(self.coarse_out)
-        biases_bram_usage = bram_memory_resource_model(
-                    int(bias_memory_depth),self.biases_width) * self.coarse_out
-#=======
-#        n_filters = float(self.filters*self.channels_in(0)*self.k_size*self.k_size)/float(self.fine*self.groups*self.coarse_in[0]*self.coarse_out[0])
-#        weights_bram_usage = int(math.ceil((self.weight_width*n_filters)/18000))*self.coarse_in[0]*self.coarse_out[0]*self.fine
-#>>>>>>> b273d34... started split layer (#26)
+        # FIXME: sort mem requirements correctly
+        biases_memory_depth = float(self.filters) / float(self.coarse_out)
+        biases_bram_usage = \
+            bram_array_resource_model(int(biases_memory_depth), self.biases_width, 'fifo')*\
+                self.coarse_out
+        if biases_bram_usage == 0:
+            # below vivado bram threshold, using lutram
+            biases_lutram = queue_lutram_resource_model(biases_memory_depth, self.data_width)
+        else:
+            biases_lutram = 0
 
         # Total
         return {
@@ -344,7 +360,8 @@ class ConvolutionLayer(Layer):
                       conv_rsc['LUT']*self.coarse_in*self.coarse_out*self.coarse_group +
                       accum_rsc['LUT']*self.coarse_in*self.coarse_out*self.coarse_group +
                       glue_rsc['LUT']*self.coarse_group +
-                      bias_rsc['LUT']*self.coarse_out,
+                      bias_rsc['LUT']*self.coarse_out +
+            biases_lutram + weights_lutram,
             "FF"   :  sw_rsc['FF']*self.coarse_in*self.coarse_group +
                       fork_rsc['FF']*self.coarse_in*self.coarse_group +
                       conv_rsc['FF']*self.coarse_in*self.coarse_out*self.coarse_group +
