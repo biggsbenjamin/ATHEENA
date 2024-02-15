@@ -131,12 +131,12 @@ void {name}(
     stream_t({name}_flpt_t) softmax_sum_out;
     stream_t({name}_ctrl_t) cmp_out;
 
-#pragma HLS STREAM variable=exponen_out
+#pragma HLS STREAM variable=exponen_out depth={fm_size}
 #pragma HLS STREAM variable=fork_i_out
 #pragma HLS ARRAY_PARTITION variable=fork_i_out complete dim=0
-#pragma HLS STREAM variable=reducemax_out
-#pragma HLS STREAM variable=softmax_sum_out
-#pragma HLS STREAM variable=cmp_out
+#pragma HLS STREAM variable=reducemax_out depth={fm_size}
+#pragma HLS STREAM variable=softmax_sum_out depth={fm_size}
+#pragma HLS STREAM variable=cmp_out depth={fm_size}
 
     float cmp_thr[1];
     cmp_thr[0] = {threshold};
@@ -241,7 +241,8 @@ def gen_softmax_cmp_layer(name, param, src_path, header_path,topless=True):
         softmax_sum     = softmax_sum,
         compare         = compare,
         fork_o          = fork_o,
-        threshold       = param['threshold']
+        threshold       = param['threshold'],
+        fm_size         = param['rows_in']*param['cols_in']*param['channels_in']
     )
 
     #header
