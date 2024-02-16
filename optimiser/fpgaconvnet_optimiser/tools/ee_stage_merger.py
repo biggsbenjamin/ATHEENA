@@ -23,7 +23,7 @@ import pandas as pd
 sys.path.append(os.environ.get("FPGACONVNET_OPTIMISER"))
 sys.path.append(os.environ.get("FPGACONVNET_HLS"))
 
-def exit_fusion(args,ee1,eef,output_name):
+def exit_fusion(args,ee1,eef,output_name, ebuff_depth=0):
     #FIXME currently only works for two stage networks
     #load first exit stage - deep copy as this will form the basis of the output
     merge_out = copy.deepcopy(ee1)
@@ -45,6 +45,9 @@ def exit_fusion(args,ee1,eef,output_name):
             if lyr_type == LAYER_TYPE.Buffer:
                 print("found buffer to late stage")
                 ebuff = lyr
+                # NOTE setting calculated buffer depth here
+                # Based on q size
+                ebuff.parameters.buffer_depth = ebuff_depth
             if lyr_type == LAYER_TYPE.If:
                 print("found exit merge")
                 emerge = lyr
@@ -218,6 +221,7 @@ if __name__ == "__main__":
         output_name = "{}.json".format(args.output_name)
 
         #NOTE defaulting to partition 0
+        # FIXME defaulting to ZERO buffer size for buffer1
         exit_fusion(args, ee1, eef, output_name)
     else:
         # parser the combined file and generate all jsons
@@ -226,9 +230,13 @@ if __name__ == "__main__":
         rp_names = df['report_name'].tolist()
         thru_ls = df['throughput'].tolist()
         rsc_ls = df['resource_max'].tolist()
-        print(rp_names, rsc_ls, thru_ls)
+        # get the min delays for sizing the buffer
+        delay_ls = df['buff_min_delay'].tolist()
 
-        for nm, r, t in zip(rp_names, rsc_ls, thru_ls):
+
+        for _,row in df.iterrows():
+            nm, r, t, bd = row['report_name'], \
+            row['resource_max'],row['throughput'],int(row['buff_min_delay'])
             # pull rsc and thruput nums for name
             thru = math.floor(float(t))
             rsc = math.floor(float(r)*100)
@@ -264,4 +272,4 @@ if __name__ == "__main__":
 
             output_name = "{}_rsc{}_thru{}.json".format(args.output_name, rsc, thru)
 
-            exit_fusion(args, ee1, eef, output_name)
+            exit_fusion(args, ee1, eef, output_name, bd)
