@@ -87,7 +87,9 @@ def bram_array_resource_model(depth, width, array_type, force_bram_pragma=False,
     if detailed:
         return width, bram_width, depth, bram_depth
     else:
-        return math.ceil(width/bram_width)*math.ceil(depth/bram_depth)
+        bram_usage = math.ceil(width/bram_width)*math.ceil(depth/bram_depth)
+        #7 series
+        return 2**math.ceil(math.log2(bram_usage))
 
 def queue_lutram_resource_model(depth, width):
     if depth == 0 or width == 0:

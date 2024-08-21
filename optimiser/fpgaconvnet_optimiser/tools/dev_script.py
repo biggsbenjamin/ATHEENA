@@ -63,7 +63,7 @@ def optim_init(args):
     #add optimiser config
     with open(args.optimiser_path,"r") as f:
         optimiser_config = yaml.load(f, Loader=yaml.Loader)
-        print("Loading optimiser cfg @: {args.optimiser_path}")
+        print(f"Loading optimiser cfg @: {args.optimiser_path}")
 
     net = SimulatedAnnealing(
             args.save_name,
@@ -101,8 +101,8 @@ def optim_init(args):
 # adding function def so I don't need to change names
 def _opt_loops(args,net,bshift=0):
     # setting resource limits and no. runs for branchy optim
-    rsc_limits = [0.05, 0.1, 0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
-    full_sa_runs = 5#10
+    rsc_limits = [ 0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]#,0.9,1.0]
+    full_sa_runs = 10
 
     # set up buffer shifted path
     if bshift > 0:
@@ -305,6 +305,14 @@ def extract_rpt_data(data_dict, input_path, report_str=""):
                     data_dict["resource_max"].append(actual_rsc[idx_max][0])
                     data_dict["limiting_resource"].append(actual_rsc[idx_max][1])
                     data_dict["report_name"].append(repf)
+                    buf1_bram=0
+                    if report_str == "ee1":
+                        # find buffer 1
+                        buffer1 = repf_json["partitions"]["0"]["layers"]["buffer1"]
+                        # find bram
+                        buf1_bram = int(buffer1["resource_usage"]["BRAM"])
+                        #add bram info
+                    data_dict["buff1_bram"].append(buf1_bram)
     #need the platform stats
     return platform_dict
 
@@ -328,8 +336,13 @@ def combine_network_sections(args, ee1_data, eef_data,
     eef_len = len(eef_data["report_name"])
     # very basic memoisation to reduce parse time
     intr_buff_memo = {}
+
+    # implement lookup for BRAM consumption from report...
+        # need to find specific layer, maybe cross ref with other json?
+
     # queue size default to prevet deadlock
-    qs_default = 16
+    #qs_default = 4
+
     for ee1_idx in range(ee1_len):
         for eef_idx in range(eef_len):
             ee1_thru = ee1_data["throughput"][ee1_idx]
@@ -341,14 +354,23 @@ def combine_network_sections(args, ee1_data, eef_data,
             #raw throughputs
             combined_dict["ee1_throughput"].append(ee1_thru)
             combined_dict["eef_throughput"].append(eef_data["throughput"][eef_idx])
+            # bram consumed for conditional buffer (FIXME 2 stage only)
+            buff1_bram = ee1_data["buff1_bram"][ee1_idx]
             #for getting the limiting rsc
             rsc_sums = {"LUT":{"pc":0, "val":0},
                         "FF":{"pc":0, "val":0},
                         "BRAM":{"pc":0, "val":0},
                         "DSP":{"pc":0, "val":0}}
             for rn in rsc_names:
-                # get rsc sum
-                rsc_sum = ee1_data[rn][ee1_idx]+eef_data[rn][eef_idx]
+                if rn == "LUT":
+                    # get rsc sum
+                    # NOTE added 10% to luts to improve rsc model, removing makes q th look better
+                    # Should I keep it in?
+                    # Same with the power of 2 BRAM config limitation
+                    rsc_sum = int((ee1_data[rn][ee1_idx]+eef_data[rn][eef_idx])*1.1)
+                else:
+                    # get rsc sum
+                    rsc_sum = ee1_data[rn][ee1_idx]+eef_data[rn][eef_idx]
                 # store numerical value of rsc temporaily
                 rsc_sums[rn]["val"] = rsc_sum
                 res_percent = rsc_sum/float(platform_dict[rn])
@@ -371,55 +393,63 @@ def combine_network_sections(args, ee1_data, eef_data,
             combined_dict["resource_max"].append(rsc_max_pc)
             combined_dict["limiting_resource"].append(rsc_max_name)
 
-            q_depth=qs_default
-            # If BRAM is the limiting resource,
-            # use minimum buffer size(accounted for)
-            # NOTE minimum accounted for in current buffer model
-            # any previously generated values will not be accurate!
-            min_delay=qs_default*1280 #FIXME - assuming buffer1, no coarse
+            ### get the input shape of the buffer layer
+            # convert report name to partition name
+            outer_fldr = ee1_data["report_name"][ee1_idx]
+            # remove 'report_'
+            ptn_file = outer_fldr[7:]
+            # finds the resource lim specified in the file name
+            rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)",ptn_file).group()
+            path = os.path.join(
+                args.input_path,"post_optim-rsc{}p/{}".format(rsc_lim,ptn_file))
+
+            if path not in intr_buff_memo:
+                # load partition information
+                ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
+                with open(path,'r') as f:
+                    json_format.Parse(f.read(), ee1)
+                # get 'buffer1' layer (intermediate buffer layer)
+                intr_buff=None
+                ee1_ptn = ee1.partition[0]
+                for lyr in ee1_ptn.layers:
+                    lyr_type = from_proto_layer_type(lyr.type)
+                    if lyr.streams_out[0].name == "out":
+                        if lyr_type == LAYER_TYPE.Buffer:
+                            #print("found buffer to late stage")
+                            intr_buff = lyr
+
+                # set input shape of intermediate buffer
+                input_shape={'r':intr_buff.parameters.rows_in,
+                             'c':intr_buff.parameters.cols_in,
+                             'ch':intr_buff.parameters.channels_in,
+                             'cr':intr_buff.parameters.coarse_in}
+                # memo shape list
+                intr_buff_memo[path] = input_shape
+            ### get the input shape of the buffer layer
+
+            fm_shape=input_shape['r']*input_shape['c']*(input_shape['ch']/input_shape['cr'])
+            q_depth=math.floor((buff1_bram*1024)/fm_shape)/input_shape['cr']
+            min_delay=q_depth*fm_shape
+
             if rsc_max_name != "BRAM":
+                # If BRAM is the limiting resource,
+                # use minimum buffer size(accounted for)
+
+                #fm_shape=input_shape[0]*input_shape[1]*(input_shape[2]/input_shape[3])
+                #q_depth=math.floor((buff1_bram*1024)/fm_shape)
+                #min_delay=q_depth*fm_shape
+            #else:
                 # get bram allowance
                 bram_allw = intr_buffer.get_bram_allowance(
                     rsc_max_pc,bram_usage,platform_dict["BRAM"])
 
-                ### get the input shape of the buffer layer
-                # convert report name to partition name
-                outer_fldr = ee1_data["report_name"][ee1_idx]
-                # remove 'report_'
-                ptn_file = outer_fldr[7:]
-                # finds the resource lim specified in the file name
-                rsc_lim = re.search(r"(?<=rsc)([0-9])+(?=p)",ptn_file).group()
-                path = os.path.join(
-                    args.input_path,"post_optim-rsc{}p/{}".format(rsc_lim,ptn_file))
-
-                if path not in intr_buff_memo:
-                    # load partition information
-                    ee1 = fpgaconvnet_optimiser.proto.fpgaconvnet_pb2.partitions()
-                    with open(path,'r') as f:
-                        json_format.Parse(f.read(), ee1)
-                    # get 'buffer1' layer (intermediate buffer layer)
-                    intr_buff=None
-                    ee1_ptn = ee1.partition[0]
-                    for lyr in ee1_ptn.layers:
-                        lyr_type = from_proto_layer_type(lyr.type)
-                        if lyr.streams_out[0].name == "out":
-                            if lyr_type == LAYER_TYPE.Buffer:
-                                #print("found buffer to late stage")
-                                intr_buff = lyr
-
-                    # set input shape of intermediate buffer
-                    input_shape=[intr_buff.parameters.rows_in,
-                                 intr_buff.parameters.cols_in,
-                                 intr_buff.parameters.channels_in,
-                                 intr_buff.parameters.coarse_in]
-                    # memo shape list
-                    intr_buff_memo[path] = input_shape
-
-                # get batch size
+                # get batch size NOTE could do weird behaviour
                 batch_size = int(ee1_ptn.batch_size)
                 # get new bram usage and q_depth
                 bram, min_delay, q_depth = intr_buffer.get_buffer_size(
-                    intr_buff_memo[path],batch_size,bram_allw,default_size=qs_default)
+                    intr_buff_memo[path],batch_size,bram_allw,buff1_bram,
+                    zbrd_flag=False,
+                    )
                 ## NOTE if some rsc AND bram are max limiting rsc then q depth might be 0
                 if q_depth == 0:
                     raise ValueError(f"{q_depth}, {rsc_max_name}")
@@ -427,7 +457,6 @@ def combine_network_sections(args, ee1_data, eef_data,
 
                 # update combined bram usage
                 combined_dict["BRAM"][-1] = (bram_usage+bram)/float(platform_dict["BRAM"])
-
 
             # state service time metrics for stage 2
             # TODO scale to multiple stages
@@ -585,7 +614,8 @@ def gen_graph(args):
     #init data dicts
     ee1_data = {"report_name":[], "throughput":[],
                 "resource_max":[], "limiting_resource":[],
-                "LUT":[], "FF":[], "BRAM":[], "DSP":[]}
+                "LUT":[], "FF":[], "BRAM":[], "DSP":[],
+                "buff1_bram":[]}
     eef_data = copy.deepcopy(ee1_data)
     baseline_data = copy.deepcopy(ee1_data)
 
@@ -651,6 +681,7 @@ def gen_graph(args):
                 #gen pareto front for combined data
                 _, pareto_comb_mask,srt_comb_idx = \
                     pareto_front(combined_data, "resource_max","throughput")
+                    #pareto_front(combined_data, "resource_max","old_thru")
             #print graph of combined vs baseline vs ee1
             rsc_str = "resource_max"
             fig = plt.figure()

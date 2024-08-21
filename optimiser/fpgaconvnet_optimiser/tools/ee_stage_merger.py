@@ -239,7 +239,7 @@ if __name__ == "__main__":
             row['resource_max'],row['throughput'],int(row['buff_min_delay'])
             # pull rsc and thruput nums for name
             thru = math.floor(float(t))
-            rsc = math.floor(float(r)*100)
+            rsc = math.floor(float(r)*10000)
             #e[0] = [rsc,thru]
 
             print("Throughput:{} Resources:{}".format(thru, rsc))

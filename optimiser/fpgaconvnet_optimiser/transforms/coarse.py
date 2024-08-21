@@ -42,13 +42,15 @@ def apply_random_coarse_layer(self, layer, avoid_input_crs=True):
     # get possible coarse folding types
     coarse_types=[]
     #FIXME allow multiple input/output ports(streams,coarse)
-    if layer in self.input_nodes:
-        coarse_types.append('coarse_out')
-        #### FIXME - temporary for eef throughput limited networks
-        if not avoid_input_crs:
-            coarse_types.append('coarse_in')
-        #### FIXME
-    elif layer in self.output_nodes:
+    # fix in downstream implementation
+    #if layer in self.input_nodes:
+    #    coarse_types.append('coarse_out')
+    #    #### FIXME - temporary for eef throughput limited networks
+    #    if not avoid_input_crs:
+    #        coarse_types.append('coarse_in')
+    #    #### FIXME
+    #elif layer in self.output_nodes:
+    if layer in self.output_nodes:
         coarse_types.append('coarse_in')
     else:
         coarse_types.append('coarse_in')
