@@ -131,7 +131,8 @@ class Optimiser(Network):
             "ERROR : (constraint violation) Throughput constraint exceeded")
 
     def apply_transform(self, transform, partition_index=None,
-                        node=None,iteration=None,cooltimes=None):
+                        node=None,iteration=None,cooltimes=None,
+                        avoid_input_crs=True):
         """
         function to apply chosen transform to the network. Partition index
         and node can be specified. If not, a random partition and node is
@@ -163,7 +164,7 @@ class Optimiser(Network):
         avoid_layers = [LAYER_TYPE.If, #exit merge
                         LAYER_TYPE.Squeeze,
                         LAYER_TYPE.Greater, #softmax cmp
-                        LAYER_TYPE.Buffer,
+                        #LAYER_TYPE.Buffer,
                         ] # buffer and split can be
 
         ## Coarse transform (node_info transform)
@@ -174,7 +175,7 @@ class Optimiser(Network):
                         self.partitions[partition_index].graph))
                     #print("WARNING coarse.py: avoiding coarse transform of layer")
 
-                self.partitions[partition_index].apply_random_coarse_layer(node)
+                self.partitions[partition_index].apply_random_coarse_layer(node, avoid_input_crs)
                 return
             except KeyError:
                 print("failing type check node:",node)

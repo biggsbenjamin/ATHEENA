@@ -16,8 +16,8 @@
         "width": 16,
         "binary_point": 8
     },
-    "min_delay": 32180,
+    "min_delay": 248320,
     "sample_id_width": 16,
     "stall_delay": 0,
-    "description": "buffer 1, chonky boi, 50rsc, 1024bs"
+    "description": "buffer 1, chonky boi, 50rsc, 1024bs - now 204fms"
 }

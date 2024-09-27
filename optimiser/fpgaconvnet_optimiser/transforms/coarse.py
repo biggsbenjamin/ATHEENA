@@ -18,9 +18,10 @@ from fpgaconvnet_optimiser.transforms.helper import get_factors
 
 #transformable_layers = [ LAYER_TYPE.Convolution, LAYER_TYPE.InnerProduct ] #NOTE not used
 
-avoid_layers = [LAYER_TYPE.Split, LAYER_TYPE.If, LAYER_TYPE.Squeeze]
+#avoid_layers = [LAYER_TYPE.Split, LAYER_TYPE.If, LAYER_TYPE.Squeeze]
+avoid_layers = [LAYER_TYPE.If, LAYER_TYPE.Squeeze]
 
-def apply_random_coarse_layer(self, layer):
+def apply_random_coarse_layer(self, layer, avoid_input_crs=True):
     """
     Applies a random coarse in or coarse out factor to the given layer.
 
@@ -44,7 +45,8 @@ def apply_random_coarse_layer(self, layer):
     if layer in self.input_nodes:
         coarse_types.append('coarse_out')
         #### FIXME - temporary for eef throughput limited networks
-        #coarse_types.append('coarse_in')
+        if not avoid_input_crs:
+            coarse_types.append('coarse_in')
         #### FIXME
     elif layer in self.output_nodes:
         coarse_types.append('coarse_in')

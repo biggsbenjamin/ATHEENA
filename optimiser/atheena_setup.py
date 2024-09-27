@@ -36,6 +36,7 @@ setuptools.setup(
         "sklearn",
         "matplotlib",
         "coverage==5.5",
-        "pyparsing<3"
+        "pyparsing<3",
+        "pandas>=1.3.5"
     ]
 )

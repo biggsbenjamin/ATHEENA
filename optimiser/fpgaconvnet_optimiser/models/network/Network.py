@@ -151,6 +151,7 @@ class Network():
     # EE partitioning
     from fpgaconvnet_optimiser.models.network.represent import save_partition_subgraphs
     from fpgaconvnet_optimiser.models.network.represent import exit_split
+    from fpgaconvnet_optimiser.models.network.represent import buffer_shift
 
 
     from fpgaconvnet_optimiser.models.network.validate import check_ports
