@@ -23,11 +23,11 @@ transforms:
             - [Relu, Gemm]
             - [AveragePool, Gemm]
 annealing:
-    T: 10.0
+    T: 20.0
     T_min: 0.001
     k: 0.1
     cool: 0.9
-    iterations: 10
+    iterations: 8
 general:
     logging: false
     checkpoints: false

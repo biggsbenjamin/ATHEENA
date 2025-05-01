@@ -1,0 +1,13 @@
+{
+  "name" : "vu11p",
+  "DSP"  : 3840,
+  "BRAM" : 4320,
+  "FF"   : 8171520,
+  "LUT"  : 4085760,
+  "freq"          : 150000000,
+  "reconf_time"   : 0.08255,
+  "mem_bandwidth" : 10000,
+  "mem_capacity"  : 1024000000,
+  "ports"         : 20,
+  "port_width"    : 512
+}
