@@ -1,0 +1,16 @@
+{
+    "type": "SOFTMAX_CMP",
+    "buffer_depth" : 2,
+    "batch_size": 256,
+    "rows_in": 1,
+    "cols_in": 1,
+    "channels_in": 10,
+    "coarse": 1,
+    "coarse_in": 1,
+    "coarse_out": 1,
+    "cond_type": "top1",
+    "ctrledges" : [0,1,2],
+    "ctrl" : 3,
+    "threshold" : 0.5,
+    "description": "layer name: tbd , net name: tbd"
+}

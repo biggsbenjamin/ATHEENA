@@ -35,6 +35,7 @@ class ModuleModel:
                         self.points.append(tmp)
                 except:
                     print(f"Cannot open {result_file}")
+        print(f"Files available:{len(result_files)}, Files used:{len(self.points)}")
 
     def filter_parameters(self, filters):
         res = []
@@ -92,6 +93,7 @@ class ModuleModel:
         # iterate over points
         for point in self.points:
             # get utilisation model
+
             for (key,value) in model.items():
                 #print("key,val",key)
                 value.append(self.module(point["parameters"]).utilisation_model()[key])
@@ -105,6 +107,7 @@ class ModuleModel:
             self.coef[rsc_type] = self.get_nnls_coef(np.array(model[rsc_type]), np.array(actual[rsc_type]))
 
     def save_coefficients(self,filepath):
+        self.name=os.path.basename(filepath)
         # LUT
         with open(f"{filepath}_lut.npy", "wb") as f:
             np.save(f,self.coef["LUT"])
@@ -201,7 +204,7 @@ class ModuleModel:
         plt.xlabel("Predicted")
         plt.ylabel("Actual")
 
-        plt.show()
+        #plt.show()
 
-        fig.savefig("OUT.png")
+        fig.savefig(f"plots/{self.name}_cmp_plot.png")
 

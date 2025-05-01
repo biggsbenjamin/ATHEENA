@@ -66,6 +66,12 @@ test/partitions/CPY_test
 test/partitions/branchy_lenet_eg
 test/partitions/se_lenet_BASELINE
 
+test/partitions/tcad*
+test/partitions/tmp_tcad
+.mypy_cache/*
+runs/plots/*
+
+
 yaml-cpp-release-0.5.3/*
 
 sd_card/
@@ -87,3 +93,6 @@ test/partitions/**/*.BIN
 test/partitions/**/*.c
 
 **.tar.gz
+
+**/strange_logs/*
+**/tmp_logs/*

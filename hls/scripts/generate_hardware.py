@@ -20,8 +20,6 @@ import generate.partition
 import generate.ee_partition
 import generate.split_net
 
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Hardware Generation Script")
     parser.add_argument('-n','--name',required=True,

@@ -168,7 +168,7 @@ void exit_merge(
     const unsigned int fm_size    = ROWS*COLS*CHANNELS;
     const unsigned int full_size  = BATCH_SIZE*ROWS*COLS*CHANNELS;
 
-    const unsigned int depth_in = full_size+8;
+    const unsigned int depth_in = full_size+8; //fm_size+8
     #pragma HLS STREAM variable=in depth=depth_in
     #pragma HLS ARRAY_PARTITION variable=in complete dim=0
     #pragma HLS STREAM variable=out
