@@ -70,6 +70,7 @@ class Module:
             utilisation of resources model. Defaults
             to zero resources.
         """
+        raise NotImplementedError(f"util model not implemented for {self.__name__}")
         return {
             "LUT"  : np.array([0]),
             "DSP"  : np.array([0]),

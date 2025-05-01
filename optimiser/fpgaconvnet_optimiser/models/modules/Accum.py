@@ -16,7 +16,7 @@ import sys
 from dataclasses import dataclass, field
 
 from fpgaconvnet_optimiser.models.modules import Module
-from fpgaconvnet_optimiser.tools.resource_model import bram_memory_resource_model
+from fpgaconvnet_optimiser.tools.resource_model import bram_memory_resource_model, bram_stream_resource_model,queue_lutram_resource_model,bram_array_resource_model
 
 @dataclass
 class Accum(Module):
@@ -74,12 +74,21 @@ class Accum(Module):
         if coef == None:
             coef = self.rsc_coef
         # get the accumulation buffer BRAM estimate
-        acc_buffer_bram = bram_memory_resource_model(int(self.filters/self.groups), self.data_width)
+
+        acc_buffer_depth = int(self.filters/self.groups)+10
+        acc_buffer_bram = bram_array_resource_model(acc_buffer_depth, self.data_width, 'fifo')
+        if acc_buffer_bram == 0:
+            # below vivado bram threshold, using lutram
+            acc_buffer_lutram = queue_lutram_resource_model(acc_buffer_depth, self.data_width)
+        else:
+            acc_buffer_lutram = 0
+
         # get the linear model estimation
         rsc = Module.rsc(self, coef)
         # add the bram estimation
         rsc["BRAM"] = acc_buffer_bram
         # return the resource usage
+        rsc["LUT"] += acc_buffer_lutram
         return rsc
 
     def functional_model(self,data):

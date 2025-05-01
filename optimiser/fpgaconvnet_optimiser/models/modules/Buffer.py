@@ -65,14 +65,15 @@ class Buffer(Module):
             coef = self.rsc_coef
         # get the buffer buffer BRAM estimate
         # NOTE using MINIMUM functioning buffer size
-        min_buff = 16
+        min_buff = 2#4#16
         buf_buffer_bram = bram_memory_resource_model(
                 int((self.rows*self.cols*self.channels)*min_buff), self.data_width)
-        # 7 series pow2
-        buf_buffer_bram_pow2=int(math.pow(
-            2,math.ceil(math.log2(buf_buffer_bram))))
-        # separate BRAMs for buffer per coarse factor
-        buf_buffer_bram = buf_buffer_bram_pow2
+        # 7 series pow2 NOTE removing for now
+        #buf_buffer_bram_pow2=int(math.pow(
+        #    2,math.ceil(math.log2(buf_buffer_bram))))
+        ## separate BRAMs for buffer per coarse factor
+        #buf_buffer_bram = buf_buffer_bram_pow2
+
         # get the linear model estimation
         rsc = Module.rsc(self, coef)
         # add the bram estimation

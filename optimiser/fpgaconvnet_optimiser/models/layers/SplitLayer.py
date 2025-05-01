@@ -179,9 +179,10 @@ class SplitLayer(MultiPortLayer):
         # get module resources
         fork_rsc = self.modules['fork'].rsc()
 
+        # NOTE scaling factor for more realistic util
         #Total
         return {
-            "LUT"   :   fork_rsc['LUT']*self.coarse,
+            "LUT"   :   fork_rsc['LUT']*self.coarse*10,
             "FF"    :   fork_rsc['FF']*self.coarse,
             "BRAM"  :   fork_rsc['BRAM']*self.coarse,
             "DSP"   :   fork_rsc['DSP']*self.coarse

@@ -35,6 +35,14 @@ class Squeeze(Module):
         # return the info
         return info
 
+    def utilisation_model(self):
+        return {
+            "LUT"   : np.array([self.cols,self.rows,self.channels,self.data_width,self.coarse_in,self.coarse_out]),
+            "FF"    : np.array([self.cols,self.rows,self.channels,self.data_width,self.coarse_in,self.coarse_out]),
+            "DSP"  : np.array([1]),
+            "BRAM" : np.array([1])
+        }
+
     def lcm(a, b):
         return abs(a*b) // math.gcd(a, b)
 

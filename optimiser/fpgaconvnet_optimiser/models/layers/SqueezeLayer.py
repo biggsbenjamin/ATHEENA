@@ -34,6 +34,18 @@ class SqueezeLayer(Layer):
         self.modules["squeeze"].coarse_in = self.coarse_in
         self.modules["squeeze"].coarse_out = self.coarse_out
 
+    def resource(self):
+        squeeze_rsc    = self.modules['squeeze'].rsc()
+
+        # Total
+        # NOTE scaling lut usage for more realistic value
+        return {
+            "LUT"  :  int(squeeze_rsc['LUT']*1.15),
+            "FF"   :  squeeze_rsc['FF'],
+            "BRAM" :  squeeze_rsc['BRAM'],
+            "DSP" :   squeeze_rsc['DSP']
+        }
+
     def visualise(self,name):
         cluster = pydot.Cluster(name,label=name)
 

@@ -6,7 +6,7 @@ from typing import Union, List
 
 from fpgaconvnet_optimiser.models.layers.utils import get_factors
 
-from fpgaconvnet_optimiser.tools.resource_model import bram_memory_resource_model
+from fpgaconvnet_optimiser.tools.resource_model import bram_memory_resource_model, bram_stream_resource_model,queue_lutram_resource_model,bram_array_resource_model
 
 from fpgaconvnet_optimiser.models.modules import SlidingWindow
 from fpgaconvnet_optimiser.models.modules import Conv
@@ -67,7 +67,7 @@ class ConvolutionLayer(Layer):
             input_width: int = 16,
             output_width: int = 16,
             weight_width: int = 16,
-            acc_width: int = 16,
+            acc_width: int = 30,
             biases_width: int = 16,
             has_bias: int = 0 # default to no bias for old configs
         ):

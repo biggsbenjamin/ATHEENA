@@ -14,6 +14,7 @@ import os
 import sys
 from typing import Union, List
 from dataclasses import dataclass, field
+from fpgaconvnet_optimiser.tools.resource_model import bram_memory_resource_model, bram_stream_resource_model,queue_lutram_resource_model,bram_array_resource_model
 
 @dataclass
 class ExitMerge(Module):
@@ -47,6 +48,33 @@ class ExitMerge(Module):
             "DSP"  : np.array([1]),
             "BRAM" : np.array([1]),
         }
+
+    def rsc(self,coef=None):
+        # use module resource coefficients if none are given
+        if coef == None:
+            coef = self.rsc_coef
+        # get the em  buffer BRAM estimate
+        #FIXME hardcoding batch size
+        em_buffer_depth = 1024*self.channels*self.rows*self.cols +8 #self.channels*self.rows*self.cols +8
+        em_buffer_bram = bram_array_resource_model(em_buffer_depth, self.data_width, 'fifo')
+        if em_buffer_bram == 0:
+            # below vivado bram threshold, using lutram
+            em_buffer_lutram = queue_lutram_resource_model(em_buffer_depth, self.data_width)
+        else:
+            em_buffer_lutram = 0
+
+        # get the linear model estimation
+        rsc = Module.rsc(self, coef)
+        # add the bram estimation
+        rsc["BRAM"] = em_buffer_bram*self.exits*2
+        # return the resource usage
+        rsc["LUT"] += em_buffer_lutram*self.exits*2
+
+        # NOTE hardcoding LUT offset
+        rsc["LUT"] += 2000 # for dma and exit
+        rsc["LUT"] += 4000 # for interconnects
+        rsc["BRAM"] += 13 # for DMA and io fifos
+        return rsc
 
     def functional_model(self, data):
         print("trying merge fn model")

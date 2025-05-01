@@ -5,7 +5,7 @@ import torch
 
 from fpgaconvnet_optimiser.models.layers.utils import get_factors
 
-from fpgaconvnet_optimiser.tools.resource_model import bram_memory_resource_model
+from fpgaconvnet_optimiser.tools.resource_model import bram_memory_resource_model, bram_stream_resource_model,queue_lutram_resource_model,bram_array_resource_model
 
 from fpgaconvnet_optimiser.models.modules import SlidingWindow
 from fpgaconvnet_optimiser.models.modules import Conv
@@ -164,9 +164,9 @@ class InnerProductLayer(Layer):
         # TODO: add to modules instead
         weights_memory_depth = float(self.filters*self.channels_in()*self.rows_in()*\
                 self.cols_in())/float(self.coarse_in*self.coarse_out)
+        #bram_memory_resource_model(int(weights_memory_depth), self.weight_width)*\
+        #self.coarse_in*self.coarse_out
         weights_bram_usage = \
-            #bram_memory_resource_model(int(weights_memory_depth), self.weight_width)*\
-            #self.coarse_in*self.coarse_out
             bram_array_resource_model(weights_memory_depth, self.data_width, 'fifo')*\
                 self.coarse_in*self.coarse_out
         if weights_bram_usage == 0:
@@ -176,10 +176,10 @@ class InnerProductLayer(Layer):
             weights_lutram = 0
 
         # FIXME: sort mem requirements correctly
-        bias_memory_depth = float(self.filters*self.rows_in()*\
+        biases_memory_depth = float(self.filters*self.rows_in()*\
             self.cols_in())/float(self.coarse_out)
-        biases_bram_usage = \
             #bram_memory_resource_model(int(bias_memory_depth), self.biases_width)*self.coarse_out
+        biases_bram_usage = \
             bram_array_resource_model(biases_memory_depth, self.biases_width, 'fifo')*\
                 self.coarse_out
         if biases_bram_usage == 0:

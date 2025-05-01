@@ -74,8 +74,9 @@ class ReLULayer(Layer):
         relu_rsc    = self.modules['relu'].rsc()
 
         # Total
+        # NOTE adding scale factor for more realistic lut util
         return {
-            "LUT"  :  relu_rsc['LUT']*self.coarse,
+            "LUT"  :  relu_rsc['LUT']*self.coarse*2,
             "FF"   :  relu_rsc['FF']*self.coarse,
             "BRAM" :  relu_rsc['BRAM']*self.coarse,
             "DSP" :   relu_rsc['DSP']*self.coarse
