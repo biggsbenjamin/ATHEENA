@@ -355,7 +355,7 @@ hs_err_pid*
 
 # remove all generated and verilog files
 *.v
-impl/
+impl*/
 
 # remove test run directories
 **_prj/
