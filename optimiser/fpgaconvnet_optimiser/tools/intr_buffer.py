@@ -5,6 +5,7 @@ Functions to compute all your buffering needs!
 ### imports ###
 import numpy as np
 import math
+import warnings # needed to catch overflows
 
 def get_bram_allowance(max_rsc_pc, bram_usage, platform_bram):
     # return the bram allowance and the new bram usage
@@ -104,11 +105,13 @@ def get_p_K(rho, s2, q_s):
 
     # basic overflow compensation
     if math.isclose((p_K_num_pow+1),p_K_den_pow,abs_tol=1e-12) and \
-            p_K_den_pow > 300 and rho>1:
+            p_K_den_pow > 100 and rho>1:
         #print(p_K_num_pow+1, p_K_den_pow)
         p_K = 1.0 - (1/rho)
     else:
-        p_K = ((rho**p_K_num_pow) * (rho - 1))/((rho**p_K_den_pow) - 1 )
+        num_pow=rho**p_K_num_pow
+        den_pow=(rho**p_K_den_pow)
+        p_K = ((num_pow) * (rho - 1))/(den_pow - 1 )
     return p_K
 
 # p0 prob, derived from thruput in = thruput out (steady state)
@@ -119,11 +122,12 @@ def get_p_0(rho, s2, q_s):
     rho_pow_den = c+2
     main_power = (rho_pow_num/rho_pow_den)
     # basic overflow compensation - TODO do envelope calc for pow lim
-    if rho > 1 and main_power > 300:
+    if rho > 1 and main_power > 100:
         #print(main_power)
         p_0 = 0.0
     else:
-        p_0 = (rho-1)/((rho**main_power)-1)
+        denom_pow = (rho**main_power)
+        p_0 = (rho-1)/(denom_pow-1)
     return p_0
 
 def get_throughput_pred(s1_thru,s2_thru,s2_exit_frac,freq_mhz,q_depth):
@@ -141,5 +145,5 @@ def get_throughput_pred(s1_thru,s2_thru,s2_exit_frac,freq_mhz,q_depth):
     #print(f"thru: {thru_smith}, thrus1: {s1_thru}, thrus2: {1/mean}")
     thru_smith_alt = (1-p_0_smith)/rho
     if not math.isclose(thru_smith,thru_smith_alt,abs_tol=1e-12):
-        raise ValueError(f"Throughput approx. mismatch {thru_smith}, {p_n_smith}, {thru_smith_alt}")
+        raise ValueError(f"Throughput approx. mismatch {thru_smith}, {p_n_smith}, {thru_smith_alt}, {rho}, {p_0_smith}, {s2}, {q_depth+2}")
     return s1_thru*thru_smith, rho
