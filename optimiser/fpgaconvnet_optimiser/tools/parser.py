@@ -25,6 +25,10 @@ from fpgaconvnet_optimiser.models.layers import ExitMergeLayer
 from fpgaconvnet_optimiser.models.layers import SoftMaxCmpLayer
 #from fpgaconvnet_optimiser.models.layers import SoftMaxLayer
 
+# resnet layers
+from fpgaconvnet_optimiser.models.layers import EltWiseLayer
+
+
 from fpgaconvnet_optimiser.tools.layer_enum import LAYER_TYPE, from_onnx_op_type
 
 def remove_node(graph, node): # TODO: move to tools.graphs
@@ -144,18 +148,49 @@ def build_graph(model):
 def add_split_nodes(graph, ctrledges):
     #adding the split nodes for branching
     splitnodes = []
+    split_id = 0
     for node in graph.nodes:
         successors = graphs.get_next_nodes(graph, node)
         if len(successors) > 1: #general split node placement
-            splitnodes.append((node, successors))
+            if len(successors) <= 2:
+                splitnodes.append((node, node, successors, split_id))
+                split_id = split_id+1
+            elif len(successors) <= 3:
+                # more than 2 successors
+                # make multiple split nodes (to have space for buffer place)
+                splitnodes.append((node, f"split{str(split_id)}", successors[1:], split_id+1))
+                splitnodes.append((node, node, [successors[0], f"split{str(split_id+1)}"], split_id))
+                # update the control edges when triple split found
+                for s in successors:
+                    for c in ctrledges:
+                        if s in c:
+                            rpl_idx = c.index(s)
+                            c[rpl_idx] = "split" + str(split_id+1)
+                            break
+                # this will add 2 split nodes
+                split_id = split_id+2
+            else:
+                # FIXME we know theres only going to be 3
+                raise ValueError("more than a 3 way split")
+
     save_nodes = [] #store the split nodes for later use (not part of model)
-    for i,(node,successors) in enumerate(splitnodes):
-        splitname = "split" + str(i)
+    for (crnode, nunode, successors, id_int) in splitnodes:
+        splitname = "split" + str(id_int)
+        # making sure all nodes exist
         graph.add_node(splitname, type=LAYER_TYPE.Split, hw=None, inputs={} )
+
+    #connecting nodes once they exist
+    for (crnode, nunode, successors, id_int) in splitnodes:
+        splitname = "split" + str(id_int)
         for succ in successors:
-            graph.remove_edge(node, succ)
+            # check if splitnode - then no edge exists
+            try:
+                graph.remove_edge(crnode, succ)
+            except nx.exception.NetworkXException:
+                continue
             graph.add_edge(splitname, succ)
-        graph.add_edge(node, splitname)
+        graph.add_edge(nunode, splitname)
+        #save list of split nodes
         save_nodes.append(splitname)
     return save_nodes
 
@@ -306,16 +341,16 @@ def add_hardware(model,submodels, graph,ctrledges,hw_only_nodes,
                 #1, # initialise coarse out to 1
             )
             continue
-        # Softmax Layer #NOTE not currently used
-        if graph.nodes[name]['type'] == LAYER_TYPE.Softmax:
-            graph.nodes[name]['hw'] = SoftMaxLayer(
-                0, # initialise rows to 0
-                0, # initialise cols to 0
-                0, # initialise channels to 0
-                #1, # initialise coarse in to 1
-                #1, # initialise coarse out to 1
-            )
-            continue
+        ## Softmax Layer #NOTE not currently used
+        #if graph.nodes[name]['type'] == LAYER_TYPE.Softmax:
+        #    graph.nodes[name]['hw'] = SoftMaxLayer(
+        #        0, # initialise rows to 0
+        #        0, # initialise cols to 0
+        #        0, # initialise channels to 0
+        #        #1, # initialise coarse in to 1
+        #        #1, # initialise coarse out to 1
+        #    )
+        #    continue
         #top1 exit criterion layer
         if graph.nodes[name]['type'] == LAYER_TYPE.Greater:
             #need to have some idea of the hw layer for EC
@@ -358,7 +393,19 @@ def add_hardware(model,submodels, graph,ctrledges,hw_only_nodes,
                 ports_in=exits
             )
             continue
-        raise NameError(f"{name}: type {str(graph.nodes[name]['type'])} does not exist!")
+        # elementwise layer - optim support only
+        if graph.nodes[name]['type'] == LAYER_TYPE.Eltwise:
+            print("WARNING: parser - Limiting eltwise ports to 2")
+            ports=2
+            graph.nodes[name]['hw'] = EltWiseLayer(
+                0, # initialise rows to 0
+                0, # initialise cols to 0
+                0, # initialise channels to 0
+                ports_in=ports
+                # leaving rest to defaults
+            )
+            continue
+        raise NameError(f"{name}: type {str(graph.nodes[name]['type'])} does not have an init!")
 
     #add hardware for the non-ONNX nodes
     for name in hw_only_nodes:
@@ -414,7 +461,11 @@ def add_dimensions(model, submodels, graph):
     def _find_valid_prev_node(graph, node):
         prev_nodes = graphs.get_prev_nodes(graph, node)
         if len(prev_nodes) > 1:
-            raise Exception("Multiple inputs not currently supported")
+            if graph.nodes[prev_nodes[0]]['type'] in [LAYER_TYPE.Eltwise]:
+                # inputs should match so just pick first
+                return prev_nodes[0]
+            else:
+                raise Exception("Multiple inputs not currently supported")
         if graph.nodes[prev_nodes[0]]['type'] in [LAYER_TYPE.Split, LAYER_TYPE.Buffer]:
             return _find_valid_prev_node(graph, prev_nodes[0]) #go round again
         else:
@@ -425,8 +476,9 @@ def add_dimensions(model, submodels, graph):
         prev_nodes = graphs.get_prev_nodes(graph, node)
 
         # TODO: support parallel networks
-        if len(prev_nodes) > 1 and graph.nodes[node]['type'] != LAYER_TYPE.If:
-            #If layer has 2 dataflow inputs of identical shape - so use the first
+        if len(prev_nodes) > 1 and graph.nodes[node]['type'] not in \
+                [LAYER_TYPE.If, LAYER_TYPE.Eltwise]:
+            #If,eltwise layer has 2 dataflow inputs of identical shape - so use the first
             raise Exception("Multiple inputs not currently supported")
         prev_node = prev_nodes[0]
         #split and buffer layers won't have value info - so use prev prev nodes.
@@ -444,7 +496,8 @@ def add_dimensions(model, submodels, graph):
             graph.nodes[node]['hw'].channels_op = [dim[0]]*graph.nodes[node]['hw'].ports_out
             graph.nodes[node]['hw'].rows_op     = [dim[1]]*graph.nodes[node]['hw'].ports_out
             graph.nodes[node]['hw'].cols_op     = [dim[2]]*graph.nodes[node]['hw'].ports_out
-        elif graph.nodes[node]['type'] == LAYER_TYPE.If: # requires same len as input ports num
+        elif graph.nodes[node]['type'] in [LAYER_TYPE.If,LAYER_TYPE.Eltwise]:
+            # requires same len as input ports num
             # multiport layers
             graph.nodes[node]['hw'].channels = [dim[0],dim[0]]
             graph.nodes[node]['hw'].rows     = [dim[1],dim[1]]

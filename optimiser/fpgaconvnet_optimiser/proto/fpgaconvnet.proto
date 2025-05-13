@@ -49,12 +49,13 @@ message parameter {
 
 message layer {
     required string name    = 1;
-    repeated stream streams_in  = 2;
-    repeated stream streams_out = 3;
-    required parameter parameters = 4;
-
-    repeated string node_in = 5;
-    repeated string node_out = 6;
+    required layer_type type = 2;
+    optional string op_type = 3;
+    repeated stream streams_in  = 4;
+    repeated stream streams_out = 5;
+    repeated string node_in = 6;
+    repeated string node_out = 7;
+    required parameter parameters = 8;
 
     enum layer_type {
         CONVOLUTION     = 0;
@@ -71,12 +72,12 @@ message layer {
         GREATER         = 10;
         IDENTITY        = 11;
         BUFFER          = 12;
+        //resnet
+        ELTWISE         = 13;
     }
 
-    required layer_type type = 7;
-
-    optional string weights_path = 8;
-    optional string bias_path    = 9;
+    optional string weights_path = 9;
+    optional string bias_path    = 10;
 }
 
 message partition {

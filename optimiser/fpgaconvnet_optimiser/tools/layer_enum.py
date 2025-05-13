@@ -54,7 +54,8 @@ def to_proto_layer_type(layer_type):
         LAYER_TYPE.Greater      : fpgaconvnet_pb2.layer.layer_type.GREATER,
         LAYER_TYPE.Identity     : fpgaconvnet_pb2.layer.layer_type.IDENTITY,
         LAYER_TYPE.Split        : fpgaconvnet_pb2.layer.layer_type.SPLIT,
-        LAYER_TYPE.Buffer       : fpgaconvnet_pb2.layer.layer_type.BUFFER
+        LAYER_TYPE.Buffer       : fpgaconvnet_pb2.layer.layer_type.BUFFER,
+        LAYER_TYPE.Eltwise      : fpgaconvnet_pb2.layer.layer_type.ELTWISE
     }
     return layer_types.get(layer_type, lambda: "Invalid Layer Type")
 
@@ -72,7 +73,8 @@ def from_proto_layer_type(layer_type):
         fpgaconvnet_pb2.layer.layer_type.GREATER       : LAYER_TYPE.Greater,
         fpgaconvnet_pb2.layer.layer_type.IDENTITY      : LAYER_TYPE.Identity,
         fpgaconvnet_pb2.layer.layer_type.SPLIT         : LAYER_TYPE.Split,
-        fpgaconvnet_pb2.layer.layer_type.BUFFER        : LAYER_TYPE.Buffer
+        fpgaconvnet_pb2.layer.layer_type.BUFFER        : LAYER_TYPE.Buffer,
+        fpgaconvnet_pb2.layer.layer_type.ELTWISE       : LAYER_TYPE.Eltwise
     }
     return layer_types.get(layer_type, lambda: "Invalid Layer Type")
 
@@ -106,5 +108,6 @@ def from_onnx_op_type(op_type):
         "Split"     : LAYER_TYPE.Split,
         #flexble buffer point for intermediate results
         "Buffer"    : LAYER_TYPE.Buffer,
+        #"Eltwise"   : LAYER_TYPE.Eltwise
     }
     return layer_types.get(op_type, lambda: TypeError)
