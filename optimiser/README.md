@@ -45,7 +45,7 @@ python -m fpgaconvnet_optimiser.tools.dev_script \
     --save_name branchy_lenet_graph \
     -o outputs/branchy_lenet/results/ \
     -i outputs/branchy_lenet/ \
-    --profiled_probability 0.75 
+    --profiled_probability 0.25 
 ```
 
 Running the `gen_graph` experiment will generate a pareto front for the optimised combination of the networks as well as a list of the reports for each of the network stages so that the user can choose pairs of network stages on the pareto front.

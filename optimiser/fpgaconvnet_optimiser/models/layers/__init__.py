@@ -20,3 +20,4 @@ from .BufferLayer           import BufferLayer
 from .ExitConditionLayer    import ExitConditionLayer
 from .ExitMergeLayer        import ExitMergeLayer
 from .SoftMaxCmpLayer       import SoftMaxCmpLayer
+from .EltWiseLayer          import EltWiseLayer

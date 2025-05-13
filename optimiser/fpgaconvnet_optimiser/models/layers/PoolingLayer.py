@@ -255,7 +255,10 @@ class PoolingLayer(Layer):
             assert data.shape[2] == self.channels_in(), "ERROR (data): invalid channel dimension"
 
         # instantiate pooling layer
-        pooling_layer = torch.nn.MaxPool2d(self.kernel_size, stride=self.stride, padding=self.pad[0])
+        if self.pool_type == 'max':
+            pooling_layer = torch.nn.MaxPool2d(self.kernel_size, stride=self.stride, padding=self.pad[0])
+        elif self.pool_type == 'avg':
+            pooling_layer = torch.nn.AvgPool2d(self.kernel_size, stride=self.stride, padding=self.pad[0])
 
         # return output featuremap
         if batched_flag:
