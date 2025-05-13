@@ -121,7 +121,10 @@ def _opt_loops(args,net,bshift=0):
             nets[1].partitions.pop(1)
 
             #change the network name
-            if len(nets[0].partitions[0].graph.nodes) > len(nets[1].partitions[0].graph.nodes):
+            #print(f"n0 len: {len(nets[0].partitions[0].graph.nodes)} n1 len: {len(nets[1].partitions[0].graph.nodes)}")
+            #if len(nets[0].partitions[0].graph.nodes) > len(nets[1].partitions[0].graph.nodes):
+            # check which one has buffer1 in for now FIXME
+            if "buffer1" in nets[0].partitions[0].graph.nodes and "buffer1" not in nets[1].partitions[0].graph.nodes:
                 nets[0].name = nets[0].name+"-ee1-rsc{}p-iter{}".format(int(rsc*100),sa_i)
                 nets[1].name = nets[1].name+"-eef-rsc{}p-iter{}".format(int(rsc*100),sa_i)
             else:
