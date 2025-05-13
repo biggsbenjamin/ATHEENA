@@ -29,7 +29,14 @@ def get_model_input_node(self, partition_index):
 
 
 def get_model_output_node(self, partition_index):
-    output_node = self.partitions[partition_index].output_nodes[0]
+    print(f"output nodes, {partition_index}: {self.partitions[partition_index].output_nodes}")
+    if len(self.partitions[partition_index].output_nodes) > 1:
+        if 'exit' in self.partitions[partition_index].output_nodes:
+            output_node = 'exit'
+        else:
+            raise ValueError(f"Not sure what output node to use: {self.partitions[partition_index].output_nodes}")
+    else:
+        output_node = self.partitions[partition_index].output_nodes[0]
     while True:
         try:
             onnx_node = onnx_helper.get_model_node(self.model, output_node, self.submodels)
@@ -340,15 +347,27 @@ def exit_split(self, partition_index):
     #find backbone
     bb_remaining = None
     bb_remaining_len = 0
+    chosen_buffer = None
     for b_layer in buffer_list:
         tmp = nx.shortest_path(main_partition.graph, b_layer, exit_layer)
+        # one buffer is connected directly to exit so take the longer path.
         if len(tmp) > bb_remaining_len:
             bb_remaining_len = len(tmp)
             bb_remaining = tmp
+            chosen_buffer = b_layer
+
+    #get all paths between intr buffer and exit
+    enum_paths = list(nx.all_simple_paths(main_partition.graph, chosen_buffer, exit_layer))
+    # get the union of the paths
+    bb_remaining = set().union(*enum_paths)
 
     # amend split
-    bb_remaining.pop(0) #remove buffer
-    bb_remaining.pop(-1) #remove exit
+    # remove buffer
+    bb_remaining.remove(chosen_buffer)
+    # remove exit
+    bb_remaining.remove(exit_layer)
+    #bb_remaining.pop(0)
+    #bb_remaining.pop(-1)
     print("Remaining bb:", bb_remaining)
 
     ee1_nodes = list(filter(lambda x: (x not in bb_remaining), node_list))
@@ -380,7 +399,6 @@ def exit_split(self, partition_index):
     # quick node check for validation
     assert node_num == new_node_num, \
         "ERROR: number of nodes has changed on exit split"
-
     self.update_partitions()
 
 """
